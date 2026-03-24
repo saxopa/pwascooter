@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Mail, Lock, User, LogIn, UserPlus } from 'lucide-react'
+import { X, Mail, Lock, User, LogIn, UserPlus, Building2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
 type AuthMode = 'login' | 'register'
@@ -14,6 +14,8 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [nom, setNom] = useState('')
+    const [isHost, setIsHost] = useState(false)
+    const [companyName, setCompanyName] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState<string | null>(null)
@@ -26,12 +28,16 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
 
         try {
             if (mode === 'register') {
+                const metadata: Record<string, string> = { nom }
+                if (isHost) {
+                    metadata.role = 'host'
+                    if (companyName.trim()) metadata.company_name = companyName.trim()
+                }
+
                 const { error: signUpError } = await supabase.auth.signUp({
                     email,
                     password,
-                    options: {
-                        data: { nom },
-                    },
+                    options: { data: metadata },
                 })
                 if (signUpError) throw signUpError
                 setMessage('Compte créé ! Vérifie ta boîte mail pour confirmer ton adresse.')
@@ -41,9 +47,8 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                 onSuccess()
                 onClose()
             }
-        } catch (err: any) {
-            // Translate common Supabase errors to French
-            const msg: string = err.message ?? 'Une erreur est survenue.'
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Une erreur est survenue.'
             if (msg.includes('Invalid login credentials')) {
                 setError('Email ou mot de passe incorrect.')
             } else if (msg.includes('User already registered')) {
@@ -189,6 +194,55 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                 {/* Form */}
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
+                    {/* Host toggle (register only) */}
+                    {mode === 'register' && (
+                        <button
+                            type="button"
+                            onClick={() => setIsHost(v => !v)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 10,
+                                padding: '10px 14px',
+                                background: isHost ? 'rgba(108,92,231,0.15)' : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${isHost ? 'rgba(108,92,231,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                borderRadius: 'var(--radius-sm)',
+                                color: isHost ? 'var(--color-primary-light)' : 'var(--color-text-secondary)',
+                                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <Building2 size={16} />
+                            Je suis un commerçant
+                            <span style={{
+                                marginLeft: 'auto',
+                                width: 36, height: 20, borderRadius: 10,
+                                background: isHost ? 'var(--color-primary)' : 'rgba(255,255,255,0.1)',
+                                position: 'relative', transition: 'background 0.2s',
+                            }}>
+                                <span style={{
+                                    position: 'absolute',
+                                    top: 2, left: isHost ? 18 : 2,
+                                    width: 16, height: 16, borderRadius: '50%',
+                                    background: 'white',
+                                    transition: 'left 0.2s',
+                                }} />
+                            </span>
+                        </button>
+                    )}
+
+                    {/* Company name (host register only) */}
+                    {mode === 'register' && isHost && (
+                        <div style={{ position: 'relative' }}>
+                            <Building2 size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                            <input
+                                type="text"
+                                placeholder="Nom de l'entreprise"
+                                value={companyName}
+                                onChange={e => setCompanyName(e.target.value)}
+                                style={inputStyle}
+                            />
+                        </div>
+                    )}
+
                     {/* Nom (register only) */}
                     {mode === 'register' && (
                         <div style={{ position: 'relative' }}>
@@ -280,7 +334,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
 
                 {/* Toggle mode */}
                 <button
-                    onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(null); setMessage(null) }}
+                    onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(null); setMessage(null); setIsHost(false) }}
                     style={{
                         marginTop: 18, width: '100%', background: 'none', border: 'none',
                         color: 'var(--color-primary-light)', fontSize: '0.85rem',

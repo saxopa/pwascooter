@@ -22,11 +22,13 @@ import {
     CheckCircle2,
     Loader2,
     CalendarDays,
+    Building2,
 } from 'lucide-react'
 import ReactDOMServer from 'react-dom/server'
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 import AuthModal from './AuthModal'
+import { useHostProfile } from '../hooks/useHostProfile'
 
 type Host = Tables<'hosts'>
 
@@ -109,7 +111,7 @@ function MapClickClose({ onClose }: { onClose: () => void }) {
 // ────────────────────── Bottom Sheet ─────────────────────────
 interface BottomSheetProps {
     host: Host
-    user: any
+    user: import('@supabase/supabase-js').User | null
     onClose: () => void
     onOpenAuth: () => void
 }
@@ -168,9 +170,9 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 
             // 5. Succès !
             setSuccess(true)
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err)
-            setError(err.message || 'Une erreur est survenue lors du paiement.')
+            setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement.')
         } finally {
             setIsPaying(false)
         }
@@ -362,14 +364,16 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 // ────────────────────── MapView Component ────────────────────
 export default function MapView() {
     const navigate = useNavigate()
+    const { profile, isHost } = useHostProfile()
     const [hosts, setHosts] = useState<Host[]>([])
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
-    const [user, setUser] = useState<any>(null)
+    const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [showAuthModal, setShowAuthModal] = useState(false)
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
+    void profile
 
     const filteredHosts = hosts.filter(h =>
         (!filterCharging || (h.has_charging === true)) &&
@@ -547,28 +551,51 @@ export default function MapView() {
                         Trouvez un parking sécurisé pour votre trottinette
                     </p>
                 </div>
-                <button
-                    onClick={() => navigate('/bookings')}
-                    aria-label="Mes Réservations"
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '8px 14px',
-                        background: 'rgba(26,26,46,0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'var(--color-text-primary)',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        flexShrink: 0,
-                        pointerEvents: 'auto',
-                    }}
-                >
-                    <CalendarDays size={15} color="var(--color-primary-light)" />
-                    Mes réservations
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, pointerEvents: 'auto' }}>
+                    <button
+                        onClick={() => navigate('/bookings')}
+                        aria-label="Mes Réservations"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '8px 14px',
+                            background: 'rgba(26,26,46,0.85)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 'var(--radius-md)',
+                            color: 'var(--color-text-primary)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                        }}
+                    >
+                        <CalendarDays size={15} color="var(--color-primary-light)" />
+                        Mes réservations
+                    </button>
+                    {isHost && (
+                        <button
+                            onClick={() => navigate('/host/dashboard')}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                padding: '8px 14px',
+                                background: 'rgba(108,92,231,0.18)',
+                                backdropFilter: 'blur(12px)',
+                                WebkitBackdropFilter: 'blur(12px)',
+                                border: '1px solid rgba(108,92,231,0.3)',
+                                borderRadius: 'var(--radius-md)',
+                                color: 'var(--color-primary-light)',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                flexShrink: 0,
+                            }}
+                        >
+                            <Building2 size={15} />
+                            Espace Pro
+                        </button>
+                    )}
+                </div>
                 {/* Auth state button */}
                 {user ? (
                     <button

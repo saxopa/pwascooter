@@ -68,9 +68,11 @@ export type Database = {
                     created_at: string | null
                     has_charging: boolean | null
                     id: string
+                    is_active: boolean
                     latitude: number
                     longitude: number
                     name: string
+                    owner_id: string | null
                     price_per_hour: number
                 }
                 Insert: {
@@ -78,9 +80,11 @@ export type Database = {
                     created_at?: string | null
                     has_charging?: boolean | null
                     id?: string
+                    is_active?: boolean
                     latitude: number
                     longitude: number
                     name: string
+                    owner_id?: string | null
                     price_per_hour: number
                 }
                 Update: {
@@ -88,31 +92,39 @@ export type Database = {
                     created_at?: string | null
                     has_charging?: boolean | null
                     id?: string
+                    is_active?: boolean
                     latitude?: number
                     longitude?: number
                     name?: string
+                    owner_id?: string | null
                     price_per_hour?: number
                 }
                 Relationships: []
             }
             profiles: {
                 Row: {
+                    company_name: string | null
                     created_at: string | null
                     email: string
                     id: string
                     nom: string
+                    role: string
                 }
                 Insert: {
+                    company_name?: string | null
                     created_at?: string | null
                     email: string
                     id: string
                     nom: string
+                    role?: string
                 }
                 Update: {
+                    company_name?: string | null
                     created_at?: string | null
                     email?: string
                     id?: string
                     nom?: string
+                    role?: string
                 }
                 Relationships: []
             }
@@ -137,7 +149,7 @@ export type Database = {
             }
         }
         Enums: {
-            booking_status: "pending" | "active" | "completed"
+            booking_status: "pending" | "active" | "completed" | "cancelled"
         }
         CompositeTypes: {
             [_ in never]: never
@@ -265,7 +277,7 @@ export type CompositeTypes<
 export const Constants = {
     public: {
         Enums: {
-            booking_status: ["pending", "active", "completed"],
+            booking_status: ["pending", "active", "completed", "cancelled"],
         },
     },
 } as const

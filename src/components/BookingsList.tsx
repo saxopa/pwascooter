@@ -36,6 +36,12 @@ const STATUS_CONFIG = {
         bg: 'rgba(108, 108, 128, 0.15)',
         icon: <CheckCircle2 size={14} />,
     },
+    cancelled: {
+        label: 'Annulée',
+        color: 'var(--color-danger)',
+        bg: 'rgba(255, 107, 107, 0.15)',
+        icon: <AlertCircle size={14} />,
+    },
 }
 
 function formatDate(iso: string) {
@@ -59,7 +65,7 @@ export default function BookingsList() {
     const [bookings, setBookings] = useState<Booking[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [user, setUser] = useState<any>(null)
+    const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
 
     useEffect(() => {
         async function load() {
