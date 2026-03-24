@@ -86,6 +86,39 @@ function FlyToMarker({ position }: { position: [number, number] | null }) {
     return null
 }
 
+function EnsureMapLayout() {
+    const map = useMap()
+
+    useEffect(() => {
+        const invalidate = () => {
+            window.requestAnimationFrame(() => {
+                map.invalidateSize()
+            })
+        }
+
+        invalidate()
+
+        const delayedInvalidate = window.setTimeout(invalidate, 250)
+        const handleResize = () => invalidate()
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                invalidate()
+            }
+        }
+
+        window.addEventListener('resize', handleResize)
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+
+        return () => {
+            window.clearTimeout(delayedInvalidate)
+            window.removeEventListener('resize', handleResize)
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+        }
+    }, [map])
+
+    return null
+}
+
 // ────────────────────── Fly-to User ──────────────────────────
 function FlyToUser() {
     const map = useMap()
@@ -497,6 +530,7 @@ export default function MapView() {
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
 
+                <EnsureMapLayout />
                 <FlyToUser />
                 <MapClickClose onClose={() => setSelectedHost(null)} />
 
