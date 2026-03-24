@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MapContainer,
@@ -22,7 +22,10 @@ import {
     CheckCircle2,
     Loader2,
     CalendarDays,
-    Building2,
+    Crosshair,
+    SlidersHorizontal,
+    Shield,
+    ChevronRight,
 } from 'lucide-react'
 import ReactDOMServer from 'react-dom/server'
 import { supabase } from '../lib/supabaseClient'
@@ -40,9 +43,19 @@ type Host = Tables<'hosts'>
 // ────────────────────── Toulouse Center ──────────────────────
 const TOULOUSE_CENTER: [number, number] = [43.6047, 1.4442]
 const DEFAULT_ZOOM = 14
+let standardMarkerIcon: L.DivIcon | null = null
+let chargingMarkerIcon: L.DivIcon | null = null
 
 // ────────────────────── Custom Marker Icon ───────────────────
 function createMarkerIcon(hasCharging: boolean) {
+    if (hasCharging && chargingMarkerIcon) {
+        return chargingMarkerIcon
+    }
+
+    if (!hasCharging && standardMarkerIcon) {
+        return standardMarkerIcon
+    }
+
     const iconHtml = ReactDOMServer.renderToStaticMarkup(
         <div
             style={{
@@ -67,13 +80,21 @@ function createMarkerIcon(hasCharging: boolean) {
         </div>
     )
 
-    return L.divIcon({
+    const icon = L.divIcon({
         html: iconHtml,
         className: 'custom-marker-icon', // Animation styles from index.css
         iconSize: [40, 40],
         iconAnchor: [20, 40], // Point of the pin is at bottom-center
         popupAnchor: [0, -42], // Popup opens just above the pin
     })
+
+    if (hasCharging) {
+        chargingMarkerIcon = icon
+    } else {
+        standardMarkerIcon = icon
+    }
+
+    return icon
 }
 
 // ────────────────────── Fly-to helper ────────────────────────
@@ -121,10 +142,17 @@ function EnsureMapLayout() {
 }
 
 // ────────────────────── Fly-to User ──────────────────────────
-function FlyToUser() {
+function FlyToUser({ locateRequest }: { locateRequest: number }) {
     const map = useMap()
+    const hasHandledInitialRequest = useRef(false)
+
     useEffect(() => {
-        if (!navigator.geolocation) return
+        if (!locateRequest || !navigator.geolocation) return
+
+        if (!hasHandledInitialRequest.current) {
+            hasHandledInitialRequest.current = true
+        }
+
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1 })
@@ -133,7 +161,8 @@ function FlyToUser() {
                 // Permission denied or unavailable: stay on Toulouse
             }
         )
-    }, [map])
+    }, [locateRequest, map])
+
     return null
 }
 
@@ -168,6 +197,8 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
     const [error, setError] = useState<string | null>(null)
     const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null)
     const [confirmedPickupCode, setConfirmedPickupCode] = useState<string | null>(null)
+    const [confirmedStartTime, setConfirmedStartTime] = useState<string | null>(null)
+    const [confirmedEndTime, setConfirmedEndTime] = useState<string | null>(null)
 
     const totalPrice = Number(host.price_per_hour) * selectedDuration
 
@@ -185,6 +216,8 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             const startTime = new Date()
             const endTime = new Date()
             endTime.setHours(endTime.getHours() + selectedDuration)
+            setConfirmedStartTime(startTime.toISOString())
+            setConfirmedEndTime(endTime.toISOString())
 
             // 3. Appel RPC anti-surbooking
             const { data: rpcData, error: rpcError } = await supabase.rpc('book_parking_spot', {
@@ -228,6 +261,20 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         }
     }
 
+    const confirmedSchedule =
+        confirmedStartTime && confirmedEndTime
+            ? `${new Date(confirmedStartTime).toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: 'short',
+            })} · ${new Date(confirmedStartTime).toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+            })} → ${new Date(confirmedEndTime).toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+            })}`
+            : null
+
     // Si confirmation réussie, on affiche un message de succès
     if (success) {
         return (
@@ -261,6 +308,25 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24 }}>
                     Votre place chez {host.name} est réservée pour {selectedDuration}h.
                 </p>
+
+                {confirmedSchedule && (
+                    <div
+                        className="glass-card"
+                        style={{
+                            marginBottom: 18,
+                            padding: '14px 16px',
+                            textAlign: 'left',
+                            background: 'rgba(255,255,255,0.05)',
+                        }}
+                    >
+                        <div style={{ fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)' }}>
+                            Créneau réservé
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: '1rem', fontWeight: 800, color: 'white' }}>
+                            {confirmedSchedule}
+                        </div>
+                    </div>
+                )}
 
                 {confirmedBookingId && confirmedPickupCode && (
                     <div style={{ marginBottom: 20, textAlign: 'left' }}>
@@ -433,6 +499,7 @@ export default function MapView() {
     const [showAuthModal, setShowAuthModal] = useState(false)
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
+    const [locateRequest, setLocateRequest] = useState(0)
 
     const needsRoleSelect = !!user && !profileLoading && !profile?.role
 
@@ -496,6 +563,8 @@ export default function MapView() {
         await supabase.auth.signOut()
     }
 
+    const visibleCount = filteredHosts.length
+
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', flex: 1 }}>
             {/* Loading overlay */}
@@ -532,7 +601,7 @@ export default function MapView() {
                 />
 
                 <EnsureMapLayout />
-                <FlyToUser />
+                <FlyToUser locateRequest={locateRequest} />
                 <MapClickClose onClose={() => setSelectedHost(null)} />
 
                 <FlyToMarker
@@ -561,18 +630,36 @@ export default function MapView() {
                 ))}
             </MapContainer>
 
-            {/* Filter Buttons */}
+            {/* Map Filters */}
             <div
                 style={{
                     position: 'absolute',
-                    bottom: 'max(20px, env(safe-area-inset-bottom))',
-                    left: 16,
+                    top: 'max(92px, calc(env(safe-area-inset-top) + 72px))',
+                    left: 14,
+                    right: 14,
                     zIndex: 500,
                     display: 'flex',
-                    flexDirection: 'column',
+                    alignItems: 'center',
                     gap: 8,
+                    flexWrap: 'wrap',
+                    pointerEvents: 'none',
                 }}
             >
+                <div
+                    className="glass-card"
+                    style={{
+                        padding: '8px 10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        color: 'var(--color-text-secondary)',
+                        background: 'rgba(15,15,26,0.82)',
+                        pointerEvents: 'auto',
+                    }}
+                >
+                    <SlidersHorizontal size={15} color="var(--color-primary-light)" />
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700 }}>{visibleCount} offre{visibleCount > 1 ? 's' : ''}</span>
+                </div>
                 <button
                     onClick={() => setFilterCharging(f => !f)}
                     style={{
@@ -586,6 +673,7 @@ export default function MapView() {
                         color: filterCharging ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                         cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
                         transition: 'all 0.2s',
+                        pointerEvents: 'auto',
                     }}
                 >
                     ⚡ Recharge
@@ -603,9 +691,29 @@ export default function MapView() {
                         color: filterCheap ? 'var(--color-warning)' : 'var(--color-text-secondary)',
                         cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
                         transition: 'all 0.2s',
+                        pointerEvents: 'auto',
                     }}
                 >
                     💰 Moins de 2€/h
+                </button>
+                <button
+                    onClick={() => setLocateRequest((request) => request + 1)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 7,
+                        padding: '10px 14px',
+                        background: 'rgba(26,26,46,0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--color-text-primary)',
+                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                        transition: 'all 0.2s',
+                        pointerEvents: 'auto',
+                    }}
+                >
+                    <Crosshair size={15} color="var(--color-accent)" />
+                    Me localiser
                 </button>
             </div>
 
@@ -613,105 +721,134 @@ export default function MapView() {
             <div
                 style={{
                     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 500,
-                    padding: '16px 20px', paddingTop: 'max(16px, env(safe-area-inset-top))',
+                    padding: '16px 14px 0', paddingTop: 'max(16px, env(safe-area-inset-top))',
                     background: 'linear-gradient(to bottom, rgba(15,15,26,0.9), transparent)',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
+                    display: 'grid',
+                    gap: 10,
                 }}
             >
-                <div style={{ pointerEvents: 'none' }}>
-                    <h1 className="text-gradient" style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                        ⚡ ScootSafe
-                    </h1>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                        Trouvez un parking sécurisé pour votre trottinette
-                    </p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, pointerEvents: 'auto' }}>
-                    <div className="glass-card" style={{ padding: '8px 12px', background: 'rgba(26,26,46,0.72)' }}>
-                        <LegalLinks compact align="right" />
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                    }}
+                >
+                    <div
+                        className="glass-card"
+                        style={{
+                            padding: '12px 14px',
+                            background: 'rgba(15,15,26,0.74)',
+                            maxWidth: 'min(70vw, 360px)',
+                            pointerEvents: 'auto',
+                        }}
+                    >
+                        <h1 className="text-gradient" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                            ScootSafe
+                        </h1>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.45 }}>
+                            Réserve un point sécurisé ou retrouve un commerçant de proximité.
+                        </p>
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, pointerEvents: 'auto' }}>
+                        <div className="glass-card" style={{ padding: '8px 12px', background: 'rgba(26,26,46,0.72)' }}>
+                            <LegalLinks compact align="right" />
+                        </div>
+                        {user ? (
+                            <button
+                                onClick={handleSignOut}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    padding: '8px 12px',
+                                    background: 'rgba(255,107,107,0.12)',
+                                    border: '1px solid rgba(255,107,107,0.2)',
+                                    borderRadius: '999px',
+                                    color: 'var(--color-danger)',
+                                    cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700,
+                                }}
+                            >
+                                <UserCircle size={14} />
+                                Déconnexion
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => setShowAuthModal(true)}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    padding: '8px 12px',
+                                    background: 'rgba(108,92,231,0.18)',
+                                    border: '1px solid rgba(108,92,231,0.3)',
+                                    borderRadius: '999px',
+                                    color: 'var(--color-primary-light)',
+                                    cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700,
+                                }}
+                            >
+                                <UserCircle size={14} />
+                                Connexion
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: isHost ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+                        gap: 8,
+                        pointerEvents: 'auto',
+                    }}
+                >
                     <button
                         onClick={() => navigate('/bookings')}
                         aria-label="Mes Réservations"
                         style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '8px 14px',
-                            background: 'rgba(26,26,46,0.85)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                            padding: '12px 14px',
+                            background: 'rgba(15,15,26,0.82)',
                             backdropFilter: 'blur(12px)',
                             WebkitBackdropFilter: 'blur(12px)',
                             border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: 'var(--radius-md)',
+                            borderRadius: '16px',
                             color: 'var(--color-text-primary)',
                             cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            fontWeight: 600,
-                            flexShrink: 0,
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            width: '100%',
                         }}
                     >
-                        <CalendarDays size={15} color="var(--color-primary-light)" />
-                        Mes réservations
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <CalendarDays size={16} color="var(--color-primary-light)" />
+                            Réservations
+                        </span>
+                        <ChevronRight size={16} color="var(--color-text-muted)" />
                     </button>
                     {isHost && (
                         <button
                             onClick={() => navigate('/host/dashboard')}
                             style={{
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                padding: '8px 14px',
-                                background: 'rgba(108,92,231,0.18)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                                padding: '12px 14px',
+                                background: 'linear-gradient(135deg, rgba(108,92,231,0.26), rgba(0,206,201,0.14))',
                                 backdropFilter: 'blur(12px)',
                                 WebkitBackdropFilter: 'blur(12px)',
                                 border: '1px solid rgba(108,92,231,0.3)',
-                                borderRadius: 'var(--radius-md)',
+                                borderRadius: '16px',
                                 color: 'var(--color-primary-light)',
                                 cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                flexShrink: 0,
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                width: '100%',
                             }}
                         >
-                            <Building2 size={15} />
-                            Espace Pro
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                <Shield size={16} />
+                                Espace Pro
+                            </span>
+                            <ChevronRight size={16} color="var(--color-text-primary)" />
                         </button>
                     )}
                 </div>
-                {/* Auth state button */}
-                {user ? (
-                    <button
-                        onClick={handleSignOut}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '8px 12px',
-                            background: 'rgba(255,107,107,0.12)',
-                            border: '1px solid rgba(255,107,107,0.2)',
-                            borderRadius: 'var(--radius-md)',
-                            color: 'var(--color-danger)',
-                            cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
-                            flexShrink: 0, pointerEvents: 'auto', marginTop: 6,
-                        }}
-                    >
-                        <UserCircle size={14} />
-                        Déconnexion
-                    </button>
-                ) : (
-                    <button
-                        onClick={() => setShowAuthModal(true)}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '8px 12px',
-                            background: 'rgba(108,92,231,0.18)',
-                            border: '1px solid rgba(108,92,231,0.3)',
-                            borderRadius: 'var(--radius-md)',
-                            color: 'var(--color-primary-light)',
-                            cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
-                            flexShrink: 0, pointerEvents: 'auto', marginTop: 6,
-                        }}
-                    >
-                        <UserCircle size={14} />
-                        Connexion
-                    </button>
-                )}
             </div>
 
             {/* Bottom Sheet */}

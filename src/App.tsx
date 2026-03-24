@@ -1,30 +1,52 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
-import LandingPage from './components/LandingPage'
 import MapView from './components/MapView'
-import BookingsList from './components/BookingsList'
-import HostDashboard from './components/HostDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
-import TermsPage from './components/TermsPage'
+
+const LandingPage = lazy(() => import('./components/LandingPage'))
+const BookingsList = lazy(() => import('./components/BookingsList'))
+const HostDashboard = lazy(() => import('./components/HostDashboard'))
+const TermsPage = lazy(() => import('./components/TermsPage'))
+
+function AppShellLoader() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--color-bg-dark)',
+        color: 'var(--color-text-secondary)',
+        fontWeight: 600,
+      }}
+    >
+      Chargement…
+    </div>
+  )
+}
 
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/cgu" element={<TermsPage />} />
-      <Route path="/map" element={<MapView />} />
-      <Route path="/bookings" element={<BookingsList />} />
-      <Route
-        path="/host/dashboard"
-        element={
-          <ProtectedRoute requiredRole="host">
-            <HostDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/map" replace />} />
-    </Routes>
+    <Suspense fallback={<AppShellLoader />}>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/cgu" element={<TermsPage />} />
+        <Route path="/map" element={<MapView />} />
+        <Route path="/bookings" element={<BookingsList />} />
+        <Route
+          path="/host/dashboard"
+          element={
+            <ProtectedRoute requiredRole="host">
+              <HostDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/map" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 
@@ -110,20 +132,7 @@ function App() {
     <div style={{ width: '100vw', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <AppBootstrap onReady={handleReady} />
       {!ready ? (
-        <div
-          style={{
-            flex: 1,
-            minHeight: '100dvh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--color-bg-dark)',
-            color: 'var(--color-text-secondary)',
-            fontWeight: 600,
-          }}
-        >
-          Chargement…
-        </div>
+        <AppShellLoader />
       ) : (
         <AppRoutes />
       )}

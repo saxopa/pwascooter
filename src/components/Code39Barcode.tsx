@@ -50,8 +50,9 @@ export default function Code39Barcode({ value, height = 56 }: Code39BarcodeProps
     const encodedValue = `*${value.toUpperCase()}*`
     const narrow = 2
     const wide = 5
-    const gap = 2
-    let cursor = 0
+    const gap = 3
+    const quietZone = 12
+    let cursor = quietZone
     const bars: React.ReactNode[] = []
 
     for (const char of encodedValue) {
@@ -82,6 +83,8 @@ export default function Code39Barcode({ value, height = 56 }: Code39BarcodeProps
         cursor += gap
     }
 
+    cursor += quietZone
+
     return (
         <svg
             viewBox={`0 0 ${cursor} ${height}`}
@@ -89,7 +92,14 @@ export default function Code39Barcode({ value, height = 56 }: Code39BarcodeProps
             height={height}
             aria-label={`Code barre ${value}`}
             role="img"
-            style={{ display: 'block' }}
+            style={{
+                display: 'block',
+                background: 'white',
+                color: '#111',
+                borderRadius: 10,
+                padding: '6px 8px',
+            }}
+            shapeRendering="crispEdges"
         >
             {bars}
         </svg>
