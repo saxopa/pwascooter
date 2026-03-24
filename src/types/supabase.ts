@@ -121,7 +121,20 @@ export type Database = {
             [_ in never]: never
         }
         Functions: {
-            [_ in never]: never
+            book_parking_spot: {
+                Args: {
+                    p_host_id: string
+                    p_user_id: string
+                    p_start_time: string
+                    p_end_time: string
+                    p_total_price: number
+                }
+                Returns: {
+                    success: boolean
+                    booking_id?: string
+                    error?: string
+                }
+            }
         }
         Enums: {
             booking_status: "pending" | "active" | "completed"

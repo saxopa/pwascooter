@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
     MapContainer,
     TileLayer,
     Marker,
     Popup,
     useMap,
+    useMapEvents,
 } from 'react-leaflet'
 import L from 'leaflet'
 import {
@@ -18,13 +20,15 @@ import {
     UserCircle,
     CheckCircle2,
     Loader2,
+    CalendarDays,
 } from 'lucide-react'
 import ReactDOMServer from 'react-dom/server'
 import { supabase } from '../lib/supabaseClient'
-import type { Tables, TablesInsert } from '../types/supabase'
+import type { Tables } from '../types/supabase'
+import AuthModal from './AuthModal'
 
 type Host = Tables<'hosts'>
-type BookingInsert = TablesInsert<'bookings'>
+
 
 // ────────────────────── Toulouse Center ──────────────────────
 const TOULOUSE_CENTER: [number, number] = [43.6047, 1.4442]
@@ -76,12 +80,37 @@ function FlyToMarker({ position }: { position: [number, number] | null }) {
     return null
 }
 
+// ────────────────────── Fly-to User ──────────────────────────
+function FlyToUser() {
+    const map = useMap()
+    useEffect(() => {
+        if (!navigator.geolocation) return
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1 })
+            },
+            () => {
+                // Permission denied or unavailable: stay on Toulouse
+            }
+        )
+    }, [map])
+    return null
+}
+
+// ────────────────────── Map click close ──────────────────────
+function MapClickClose({ onClose }: { onClose: () => void }) {
+    useMapEvents({
+        click: onClose,
+    })
+    return null
+}
+
 // ────────────────────── Bottom Sheet ─────────────────────────
 interface BottomSheetProps {
     host: Host
     user: any
     onClose: () => void
-    onAuthAnon: () => Promise<void>
+    onOpenAuth: () => void
 }
 
 // Options de durée
@@ -92,7 +121,7 @@ const DURATIONS = [
     { label: 'Journée (8h)', hours: 8 },
 ]
 
-function BottomSheet({ host, user, onClose, onAuthAnon }: BottomSheetProps) {
+function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
     const [selectedDuration, setSelectedDuration] = useState(1) // par défaut 1h
     const [isPaying, setIsPaying] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -107,7 +136,7 @@ function BottomSheet({ host, user, onClose, onAuthAnon }: BottomSheetProps) {
         setError(null)
 
         try {
-            // 1. Faker le paiement Stripe (attente 2 secondes)
+            // 1. Simuler le paiement Stripe (2 secondes — sera remplacé par vraie intégration)
             await new Promise((resolve) => setTimeout(resolve, 2000))
 
             // 2. Préparer les dates
@@ -115,21 +144,28 @@ function BottomSheet({ host, user, onClose, onAuthAnon }: BottomSheetProps) {
             const endTime = new Date()
             endTime.setHours(endTime.getHours() + selectedDuration)
 
-            // 3. Insérer dans la base de données
-            const newBooking: BookingInsert = {
-                user_id: user.id,
-                host_id: host.id,
-                start_time: startTime.toISOString(),
-                end_time: endTime.toISOString(),
-                total_price: Number(totalPrice.toFixed(2)),
-                status: 'active',
+            // 3. Appel RPC anti-surbooking
+            const { data: rpcData, error: rpcError } = await supabase.rpc('book_parking_spot', {
+                p_host_id: host.id,
+                p_user_id: user.id,
+                p_start_time: startTime.toISOString(),
+                p_end_time: endTime.toISOString(),
+                p_total_price: Number(totalPrice.toFixed(2)),
+            })
+
+            if (rpcError) throw rpcError
+
+            // 4. Vérifier le résultat métier
+            if (!rpcData?.success) {
+                if (rpcData?.error === 'PARKING_FULL') {
+                    setError('Ce parking est complet pour ce créneau. Essaie une autre heure ou un autre parking.')
+                } else {
+                    throw new Error(rpcData?.error ?? 'Erreur lors de la réservation.')
+                }
+                return
             }
 
-            const { error: dbError } = await supabase.from('bookings').insert(newBooking)
-
-            if (dbError) throw dbError
-
-            // 4. Succès !
+            // 5. Succès !
             setSuccess(true)
         } catch (err: any) {
             console.error(err)
@@ -282,7 +318,7 @@ function BottomSheet({ host, user, onClose, onAuthAnon }: BottomSheetProps) {
                 {/* Auth / CTA Button */}
                 {!user ? (
                     <button
-                        onClick={onAuthAnon}
+                        onClick={onOpenAuth}
                         style={{
                             width: '100%', padding: '14px 28px',
                             background: 'rgba(255,255,255,0.08)', color: 'white',
@@ -292,7 +328,7 @@ function BottomSheet({ host, user, onClose, onAuthAnon }: BottomSheetProps) {
                         }}
                     >
                         <UserCircle size={18} />
-                        Connexion Anonyme pour tester
+                        Se connecter pour réserver
                     </button>
                 ) : (
                     <button
@@ -324,11 +360,20 @@ function BottomSheet({ host, user, onClose, onAuthAnon }: BottomSheetProps) {
 
 // ────────────────────── MapView Component ────────────────────
 export default function MapView() {
+    const navigate = useNavigate()
     const [hosts, setHosts] = useState<Host[]>([])
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
     const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [showAuthModal, setShowAuthModal] = useState(false)
+    const [filterCharging, setFilterCharging] = useState(false)
+    const [filterCheap, setFilterCheap] = useState(false)
+
+    const filteredHosts = hosts.filter(h =>
+        (!filterCharging || (h.has_charging === true)) &&
+        (!filterCheap || (Number(h.price_per_hour) < 2))
+    )
 
     // Fetch Session & Hosts
     useEffect(() => {
@@ -366,14 +411,8 @@ export default function MapView() {
         loadInitialData()
     }, [])
 
-    async function handleAnonymousLogin() {
-        try {
-            const { error } = await supabase.auth.signInAnonymously()
-            if (error) throw error
-            // user state will be updated by onAuthStateChange
-        } catch (err: any) {
-            alert("Erreur lors de la connexion anonyme: " + err.message)
-        }
+    async function handleSignOut() {
+        await supabase.auth.signOut()
     }
 
     return (
@@ -411,6 +450,9 @@ export default function MapView() {
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
 
+                <FlyToUser />
+                <MapClickClose onClose={() => setSelectedHost(null)} />
+
                 <FlyToMarker
                     position={
                         selectedHost
@@ -419,7 +461,7 @@ export default function MapView() {
                     }
                 />
 
-                {hosts.map((host) => (
+                {filteredHosts.map((host) => (
                     <Marker
                         key={host.id}
                         position={[host.latitude, host.longitude]}
@@ -437,21 +479,131 @@ export default function MapView() {
                 ))}
             </MapContainer>
 
+            {/* Filter Buttons */}
+            <div
+                style={{
+                    position: 'absolute',
+                    bottom: 'max(20px, env(safe-area-inset-bottom))',
+                    left: 16,
+                    zIndex: 500,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                }}
+            >
+                <button
+                    onClick={() => setFilterCharging(f => !f)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 7,
+                        padding: '10px 14px',
+                        background: filterCharging ? 'rgba(0,206,201,0.25)' : 'rgba(26,26,46,0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: filterCharging ? '1px solid rgba(0,206,201,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 'var(--radius-md)',
+                        color: filterCharging ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                        transition: 'all 0.2s',
+                    }}
+                >
+                    ⚡ Recharge
+                </button>
+                <button
+                    onClick={() => setFilterCheap(f => !f)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 7,
+                        padding: '10px 14px',
+                        background: filterCheap ? 'rgba(253,203,110,0.2)' : 'rgba(26,26,46,0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: filterCheap ? '1px solid rgba(253,203,110,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 'var(--radius-md)',
+                        color: filterCheap ? 'var(--color-warning)' : 'var(--color-text-secondary)',
+                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                        transition: 'all 0.2s',
+                    }}
+                >
+                    💰 Moins de 2€/h
+                </button>
+            </div>
+
             {/* Header overlay */}
             <div
                 style={{
                     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 500,
                     padding: '16px 20px', paddingTop: 'max(16px, env(safe-area-inset-top))',
                     background: 'linear-gradient(to bottom, rgba(15,15,26,0.9), transparent)',
-                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
                 }}
             >
-                <h1 className="text-gradient" style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                    ⚡ ScootSafe
-                </h1>
-                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                    Trouvez un parking sécurisé pour votre trottinette
-                </p>
+                <div style={{ pointerEvents: 'none' }}>
+                    <h1 className="text-gradient" style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                        ⚡ ScootSafe
+                    </h1>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                        Trouvez un parking sécurisé pour votre trottinette
+                    </p>
+                </div>
+                <button
+                    onClick={() => navigate('/bookings')}
+                    aria-label="Mes Réservations"
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '8px 14px',
+                        background: 'rgba(26,26,46,0.85)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--color-text-primary)',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        flexShrink: 0,
+                        pointerEvents: 'auto',
+                    }}
+                >
+                    <CalendarDays size={15} color="var(--color-primary-light)" />
+                    Mes réservations
+                </button>
+                {/* Auth state button */}
+                {user ? (
+                    <button
+                        onClick={handleSignOut}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '8px 12px',
+                            background: 'rgba(255,107,107,0.12)',
+                            border: '1px solid rgba(255,107,107,0.2)',
+                            borderRadius: 'var(--radius-md)',
+                            color: 'var(--color-danger)',
+                            cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+                            flexShrink: 0, pointerEvents: 'auto', marginTop: 6,
+                        }}
+                    >
+                        <UserCircle size={14} />
+                        Déconnexion
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setShowAuthModal(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '8px 12px',
+                            background: 'rgba(108,92,231,0.18)',
+                            border: '1px solid rgba(108,92,231,0.3)',
+                            borderRadius: 'var(--radius-md)',
+                            color: 'var(--color-primary-light)',
+                            cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+                            flexShrink: 0, pointerEvents: 'auto', marginTop: 6,
+                        }}
+                    >
+                        <UserCircle size={14} />
+                        Connexion
+                    </button>
+                )}
             </div>
 
             {/* Bottom Sheet */}
@@ -460,7 +612,15 @@ export default function MapView() {
                     host={selectedHost}
                     user={user}
                     onClose={() => setSelectedHost(null)}
-                    onAuthAnon={handleAnonymousLogin}
+                    onOpenAuth={() => setShowAuthModal(true)}
+                />
+            )}
+
+            {/* Auth Modal */}
+            {showAuthModal && (
+                <AuthModal
+                    onClose={() => setShowAuthModal(false)}
+                    onSuccess={() => setShowAuthModal(false)}
                 />
             )}
         </div>
