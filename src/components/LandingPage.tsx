@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Building2, CalendarDays, MapPin, ShieldCheck, Zap } from 'lucide-react'
 import AuthModal from './AuthModal'
+import { supabase } from '../lib/supabaseClient'
 
 const featureCardStyle: React.CSSProperties = {
     padding: '18px 16px',
@@ -13,6 +14,30 @@ const featureCardStyle: React.CSSProperties = {
 export default function LandingPage() {
     const navigate = useNavigate()
     const [showAuthModal, setShowAuthModal] = useState(false)
+
+    useEffect(() => {
+        let isMounted = true
+
+        async function restoreSession() {
+            const { data } = await supabase.auth.getSession()
+            if (isMounted && data.session?.user) {
+                navigate('/map', { replace: true })
+            }
+        }
+
+        void restoreSession()
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                navigate('/map', { replace: true })
+            }
+        })
+
+        return () => {
+            isMounted = false
+            listener.subscription.unsubscribe()
+        }
+    }, [navigate])
 
     function handleAuthSuccess() {
         setShowAuthModal(false)
