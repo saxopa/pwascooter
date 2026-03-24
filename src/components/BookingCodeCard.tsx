@@ -1,20 +1,19 @@
 import Code39Barcode from './Code39Barcode'
-import { getBookingPickupCode } from '../lib/bookingCode'
 
 interface BookingCodeCardProps {
-    bookingId: string
+    code: string
     title?: string
     subtitle?: string
     compact?: boolean
 }
 
 export default function BookingCodeCard({
-    bookingId,
+    code,
     title = 'Code de depot',
     subtitle = 'Montre ce code au commerçant pour valider la prise en charge.',
     compact = false,
 }: BookingCodeCardProps) {
-    const pickupCode = getBookingPickupCode(bookingId)
+    const pickupCode = code.toUpperCase()
 
     return (
         <div

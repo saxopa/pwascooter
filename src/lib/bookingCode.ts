@@ -13,3 +13,7 @@ export function extractBookingPickupCode(rawValue: string): string {
     const codeMatch = normalizedValue.match(/[A-F0-9]{8}/)
     return codeMatch?.[0] ?? normalizedValue
 }
+
+export function resolveBookingPickupCode(pickupCode: string | null | undefined, bookingId: string): string {
+    return (pickupCode?.trim() || getBookingPickupCode(bookingId)).toUpperCase()
+}

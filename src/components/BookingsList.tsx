@@ -13,6 +13,7 @@ import {
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 import BookingCodeCard from './BookingCodeCard'
+import { resolveBookingPickupCode } from '../lib/bookingCode'
 
 type Booking = Tables<'bookings'> & {
     hosts: Pick<Tables<'hosts'>, 'name' | 'latitude' | 'longitude'> | null
@@ -279,7 +280,7 @@ export default function BookingsList() {
                                     {booking.status !== 'cancelled' && (
                                         <div style={{ marginTop: 14 }}>
                                             <BookingCodeCard
-                                                bookingId={booking.id}
+                                                code={resolveBookingPickupCode(booking.pickup_code, booking.id)}
                                                 compact
                                                 title="Code de validation"
                                                 subtitle="Présente ce code au commerçant lors du dépôt."

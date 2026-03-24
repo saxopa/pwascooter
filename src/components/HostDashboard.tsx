@@ -19,7 +19,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useHostProfile } from '../hooks/useHostProfile'
 import HostSpaceForm from './HostSpaceForm'
 import type { Tables } from '../types/supabase'
-import { extractBookingPickupCode, getBookingPickupCode } from '../lib/bookingCode'
+import { extractBookingPickupCode, resolveBookingPickupCode } from '../lib/bookingCode'
 
 type Host = Tables<'hosts'>
 type Booking = Tables<'bookings'>
@@ -125,82 +125,36 @@ export default function HostDashboard() {
         setValidationError(null)
         setValidationSuccess(null)
 
-        const hostSpaceIds = spaces.map((space) => space.id)
-        if (hostSpaceIds.length === 0) {
+        if (spaces.length === 0) {
             setValidationError('Aucune place commerçant n’est disponible pour valider ce code.')
             setValidating(false)
             return
         }
 
-        let targetBooking = recentBookings.find((booking) => getBookingPickupCode(booking.id) === normalizedCode)
-
-        if (!targetBooking) {
-            const hostMap = new Map(spaces.map((space) => [space.id, space.name]))
-            const { data: hostBookingsData, error: hostBookingsErr } = await supabase
-                .from('bookings')
-                .select('*')
-                .in('host_id', hostSpaceIds)
-                .order('created_at', { ascending: false })
-
-            if (hostBookingsErr) {
-                setValidationError(hostBookingsErr.message)
-                setValidating(false)
-                return
-            }
-
-            const refreshedBookings = ((hostBookingsData ?? []) as Booking[]).map((booking) => ({
-                ...booking,
-                hostName: hostMap.get(booking.host_id) ?? 'Place inconnue',
-            }))
-
-            setRecentBookings(refreshedBookings)
-            targetBooking = refreshedBookings.find((booking) => getBookingPickupCode(booking.id) === normalizedCode)
-        }
-
-        if (!targetBooking) {
-            setValidationError(`Aucune réservation ne correspond au code ${normalizedCode} dans vos places.`)
-            setValidating(false)
-            return
-        }
-
-        if (targetBooking.status === 'cancelled') {
-            setValidationError('Cette réservation est annulée.')
-            setValidating(false)
-            return
-        }
-
-        if (targetBooking.status === 'completed') {
-            setValidationError('Cette réservation est déjà terminée.')
-            setValidating(false)
-            return
-        }
-
-        if (targetBooking.status === 'active') {
-            setValidationSuccess(`Réservation déjà validée pour ${targetBooking.hostName}.`)
-            setValidating(false)
-            return
-        }
-
-        const { error } = await supabase
-            .from('bookings')
-            .update({ status: 'active' })
-            .eq('id', targetBooking.id)
+        const { data: validatedBooking, error } = await supabase.rpc('validate_booking_by_code', {
+            p_pickup_code: normalizedCode,
+        })
 
         if (error) {
-            setValidationError(error.message)
+            if (error.message.includes('BOOKING_NOT_FOUND')) {
+                setValidationError(`Aucune réservation ne correspond au code ${normalizedCode} dans vos places.`)
+            } else if (error.message.includes('BOOKING_CANCELLED')) {
+                setValidationError('Cette réservation est annulée.')
+            } else if (error.message.includes('BOOKING_COMPLETED')) {
+                setValidationError('Cette réservation est déjà terminée.')
+            } else if (error.message.includes('AUTH_REQUIRED')) {
+                setValidationError('Session invalide. Reconnecte-toi puis réessaie.')
+            } else {
+                setValidationError(error.message)
+            }
             setValidating(false)
             return
         }
 
-        setRecentBookings((prev) =>
-            prev.map((booking) =>
-                booking.id === targetBooking.id
-                    ? { ...booking, status: 'active' }
-                    : booking
-            )
-        )
+        await loadData()
         setValidationCode('')
-        setValidationSuccess(`Dépôt validé pour ${targetBooking.hostName}.`)
+        const hostName = spaces.find((space) => space.id === validatedBooking.host_id)?.name ?? 'votre place'
+        setValidationSuccess(`Dépôt validé pour ${hostName}.`)
         setValidating(false)
     }
 
@@ -479,7 +433,6 @@ export default function HostDashboard() {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     {recentBookings.slice(0, 8).map((booking) => {
-                                        const code = getBookingPickupCode(booking.id)
                                         return (
                                             <div key={booking.id} className="glass-card" style={{ padding: '14px 16px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
@@ -505,11 +458,11 @@ export default function HostDashboard() {
                                                 </div>
                                                 <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                                                     <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', letterSpacing: '0.16em', fontWeight: 800 }}>
-                                                        {code}
+                                                        {resolveBookingPickupCode(booking.pickup_code, booking.id)}
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        onClick={() => validateBookingByCode(code)}
+                                                        onClick={() => validateBookingByCode(resolveBookingPickupCode(booking.pickup_code, booking.id))}
                                                         disabled={booking.status === 'active' || validating}
                                                         style={{
                                                             padding: '8px 12px',

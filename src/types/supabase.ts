@@ -20,6 +20,7 @@ export type Database = {
                     end_time: string
                     host_id: string
                     id: string
+                    pickup_code: string
                     start_time: string
                     status: Database["public"]["Enums"]["booking_status"] | null
                     total_price: number
@@ -30,6 +31,7 @@ export type Database = {
                     end_time: string
                     host_id: string
                     id?: string
+                    pickup_code?: string
                     start_time: string
                     status?: Database["public"]["Enums"]["booking_status"] | null
                     total_price: number
@@ -40,6 +42,7 @@ export type Database = {
                     end_time?: string
                     host_id?: string
                     id?: string
+                    pickup_code?: string
                     start_time?: string
                     status?: Database["public"]["Enums"]["booking_status"] | null
                     total_price?: number
@@ -146,6 +149,12 @@ export type Database = {
                     booking_id?: string
                     error?: string
                 }
+            }
+            validate_booking_by_code: {
+                Args: {
+                    p_pickup_code: string
+                }
+                Returns: Database["public"]["Tables"]["bookings"]["Row"]
             }
         }
         Enums: {
