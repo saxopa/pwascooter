@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     ArrowLeft,
@@ -69,37 +69,67 @@ export default function BookingsList() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
+    const [cancellingId, setCancellingId] = useState<string | null>(null)
+    const [actionMessage, setActionMessage] = useState<string | null>(null)
 
-    useEffect(() => {
-        async function load() {
-            setLoading(true)
+    const load = useCallback(async () => {
+        setLoading(true)
 
-            const { data: authData } = await supabase.auth.getSession()
-            const currentUser = authData.session?.user ?? null
-            setUser(currentUser)
+        const { data: authData } = await supabase.auth.getSession()
+        const currentUser = authData.session?.user ?? null
+        setUser(currentUser)
 
-            if (!currentUser) {
-                setLoading(false)
-                return
-            }
-
-            const { data, error: err } = await supabase
-                .from('bookings')
-                .select('*, hosts(name, latitude, longitude)')
-                .eq('user_id', currentUser.id)
-                .order('created_at', { ascending: false })
-
-            if (err) {
-                setError(err.message)
-            } else {
-                setBookings((data as Booking[]) ?? [])
-            }
-
+        if (!currentUser) {
             setLoading(false)
+            return
         }
 
-        load()
+        const { data, error: err } = await supabase
+            .from('bookings')
+            .select('*, hosts(name, latitude, longitude)')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+
+        if (err) {
+            setError(err.message)
+        } else {
+            setBookings((data as Booking[]) ?? [])
+        }
+
+        setLoading(false)
     }, [])
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void load()
+        })
+    }, [load])
+
+    async function cancelBooking(bookingId: string) {
+        setCancellingId(bookingId)
+        setError(null)
+        setActionMessage(null)
+
+        const { error: rpcError } = await supabase.rpc('cancel_booking', {
+            p_booking_id: bookingId,
+        })
+
+        if (rpcError) {
+            if (rpcError.message.includes('BOOKING_NOT_CANCELLABLE')) {
+                setError('Cette réservation ne peut plus être annulée.')
+            } else if (rpcError.message.includes('FORBIDDEN')) {
+                setError('Vous ne pouvez pas annuler cette réservation.')
+            } else {
+                setError(rpcError.message)
+            }
+            setCancellingId(null)
+            return
+        }
+
+        await load()
+        setActionMessage('Réservation annulée.')
+        setCancellingId(null)
+    }
 
     return (
         <div
@@ -212,6 +242,19 @@ export default function BookingsList() {
                     </div>
                 )}
 
+                {actionMessage && (
+                    <div style={{
+                        padding: 16,
+                        borderRadius: 'var(--radius-md)',
+                        background: 'rgba(0,184,148,0.15)',
+                        color: 'var(--color-success)',
+                        fontSize: '0.9rem',
+                        marginBottom: 16,
+                    }}>
+                        {actionMessage}
+                    </div>
+                )}
+
                 {/* Empty state */}
                 {!loading && user && !error && bookings.length === 0 && (
                     <div
@@ -289,6 +332,29 @@ export default function BookingsList() {
                                                 title="Code de validation"
                                                 subtitle="Présente ce code au commerçant lors du dépôt."
                                             />
+                                        </div>
+                                    )}
+
+                                    {booking.status === 'pending' && (
+                                        <div style={{ marginTop: 12 }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => cancelBooking(booking.id)}
+                                                disabled={cancellingId === booking.id}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '11px 14px',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(255,107,107,0.2)',
+                                                    background: 'rgba(255,107,107,0.12)',
+                                                    color: 'var(--color-danger)',
+                                                    cursor: cancellingId === booking.id ? 'not-allowed' : 'pointer',
+                                                    fontWeight: 700,
+                                                    opacity: cancellingId === booking.id ? 0.65 : 1,
+                                                }}
+                                            >
+                                                {cancellingId === booking.id ? 'Annulation…' : 'Annuler la réservation'}
+                                            </button>
                                         </div>
                                     )}
                                 </div>

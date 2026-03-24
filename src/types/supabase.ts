@@ -150,6 +150,18 @@ export type Database = {
                     error?: string
                 }
             }
+            cancel_booking: {
+                Args: {
+                    p_booking_id: string
+                }
+                Returns: Database["public"]["Tables"]["bookings"]["Row"]
+            }
+            complete_booking: {
+                Args: {
+                    p_booking_id: string
+                }
+                Returns: Database["public"]["Tables"]["bookings"]["Row"]
+            }
             validate_booking_by_code: {
                 Args: {
                     p_pickup_code: string

@@ -60,6 +60,7 @@ export default function HostDashboard() {
     const [validationError, setValidationError] = useState<string | null>(null)
     const [validationSuccess, setValidationSuccess] = useState<string | null>(null)
     const [showScanner, setShowScanner] = useState(false)
+    const [completingId, setCompletingId] = useState<string | null>(null)
 
     const loadData = useCallback(async () => {
         if (!user) return
@@ -182,6 +183,33 @@ export default function HostDashboard() {
         setValidationCode(rawCode)
         setShowScanner(false)
         void validateBookingByCode(rawCode)
+    }
+
+    async function completeBooking(bookingId: string) {
+        setCompletingId(bookingId)
+        setValidationError(null)
+        setValidationSuccess(null)
+
+        const { data: completedBooking, error } = await supabase.rpc('complete_booking', {
+            p_booking_id: bookingId,
+        })
+
+        if (error) {
+            if (error.message.includes('BOOKING_NOT_COMPLETABLE')) {
+                setValidationError('Seules les réservations déposées peuvent être clôturées.')
+            } else if (error.message.includes('BOOKING_CANCELLED')) {
+                setValidationError('Cette réservation est annulée.')
+            } else {
+                setValidationError(error.message)
+            }
+            setCompletingId(null)
+            return
+        }
+
+        await loadData()
+        const hostName = spaces.find((space) => space.id === completedBooking.host_id)?.name ?? 'votre place'
+        setValidationSuccess(`Réservation clôturée pour ${hostName} · ${formatBookingSchedule(completedBooking.start_time, completedBooking.end_time)}.`)
+        setCompletingId(null)
     }
 
     if (showForm || editingSpace) {
@@ -505,39 +533,71 @@ export default function HostDashboard() {
                                                         style={{
                                                             padding: '4px 8px',
                                                             borderRadius: 6,
-                                                            background: booking.status === 'active' ? 'rgba(0,184,148,0.15)' : 'rgba(253,203,110,0.15)',
-                                                            color: booking.status === 'active' ? 'var(--color-success)' : 'var(--color-warning)',
+                                                            background:
+                                                                booking.status === 'completed'
+                                                                    ? 'rgba(255,255,255,0.08)'
+                                                                    : booking.status === 'active'
+                                                                        ? 'rgba(0,184,148,0.15)'
+                                                                        : 'rgba(253,203,110,0.15)',
+                                                            color:
+                                                                booking.status === 'completed'
+                                                                    ? 'var(--color-text-muted)'
+                                                                    : booking.status === 'active'
+                                                                        ? 'var(--color-success)'
+                                                                        : 'var(--color-warning)',
                                                             fontSize: '0.72rem',
                                                             fontWeight: 700,
                                                             textTransform: 'uppercase',
                                                         }}
                                                     >
-                                                        {booking.status === 'active' ? 'Déposé' : booking.status ?? 'pending'}
+                                                        {booking.status === 'completed' ? 'Clôturée' : booking.status === 'active' ? 'Déposé' : booking.status ?? 'pending'}
                                                     </span>
                                                 </div>
                                                 <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                                                     <div data-testid="recent-booking-code" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', letterSpacing: '0.16em', fontWeight: 800 }}>
                                                         {resolveBookingPickupCode(booking.pickup_code, booking.id)}
                                                     </div>
-                                                    <button
-                                                        data-testid="recent-booking-validate-button"
-                                                        type="button"
-                                                        onClick={() => validateBookingByCode(resolveBookingPickupCode(booking.pickup_code, booking.id))}
-                                                        disabled={booking.status === 'active' || validating}
-                                                        style={{
-                                                            padding: '8px 12px',
-                                                            borderRadius: 'var(--radius-sm)',
-                                                            border: '1px solid rgba(0,184,148,0.2)',
-                                                            background: booking.status === 'active' ? 'rgba(255,255,255,0.05)' : 'rgba(0,184,148,0.12)',
-                                                            color: booking.status === 'active' ? 'var(--color-text-muted)' : 'var(--color-success)',
-                                                            cursor: booking.status === 'active' || validating ? 'default' : 'pointer',
-                                                            fontSize: '0.78rem',
-                                                            fontWeight: 700,
-                                                            opacity: booking.status === 'active' || validating ? 0.6 : 1,
-                                                        }}
-                                                    >
-                                                        {booking.status === 'active' ? 'Déjà validée' : 'Valider ce code'}
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            data-testid="recent-booking-validate-button"
+                                                            type="button"
+                                                            onClick={() => validateBookingByCode(resolveBookingPickupCode(booking.pickup_code, booking.id))}
+                                                            disabled={booking.status === 'active' || booking.status === 'completed' || validating}
+                                                            style={{
+                                                                padding: '8px 12px',
+                                                                borderRadius: 'var(--radius-sm)',
+                                                                border: '1px solid rgba(0,184,148,0.2)',
+                                                                background: booking.status === 'active' || booking.status === 'completed' ? 'rgba(255,255,255,0.05)' : 'rgba(0,184,148,0.12)',
+                                                                color: booking.status === 'active' || booking.status === 'completed' ? 'var(--color-text-muted)' : 'var(--color-success)',
+                                                                cursor: booking.status === 'active' || booking.status === 'completed' || validating ? 'default' : 'pointer',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: 700,
+                                                                opacity: booking.status === 'active' || booking.status === 'completed' || validating ? 0.6 : 1,
+                                                            }}
+                                                        >
+                                                            {booking.status === 'completed' ? 'Déjà clôturée' : booking.status === 'active' ? 'Déjà validée' : 'Valider ce code'}
+                                                        </button>
+                                                        {booking.status === 'active' && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => completeBooking(booking.id)}
+                                                                disabled={completingId === booking.id}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    borderRadius: 'var(--radius-sm)',
+                                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                                    background: 'rgba(255,255,255,0.06)',
+                                                                    color: 'var(--color-text-primary)',
+                                                                    cursor: completingId === booking.id ? 'not-allowed' : 'pointer',
+                                                                    fontSize: '0.78rem',
+                                                                    fontWeight: 700,
+                                                                    opacity: completingId === booking.id ? 0.65 : 1,
+                                                                }}
+                                                            >
+                                                                {completingId === booking.id ? 'Clôture…' : 'Clôturer'}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )
