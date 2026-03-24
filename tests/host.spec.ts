@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test'
 import {
-  openAuthModal,
-  fillAuthForm,
-  submitAuthForm,
   login,
   logout,
 } from './utils/test-helpers'
@@ -17,7 +14,7 @@ test.describe('Host Dashboard & Spaces', () => {
       return
     }
 
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
     await login(page, hostEmail, hostPassword)
   })
@@ -130,7 +127,7 @@ test.describe('Host Dashboard & Spaces', () => {
     await page.locator('button[aria-label="Retour à la carte"]').click()
 
     // Should navigate back to map
-    await expect(page).toHaveURL(/\/pwascooter\/$/)
+    await expect(page).toHaveURL(/\/pwascooter\/map$/)
   })
 })
 
@@ -144,7 +141,7 @@ test.describe('Host Dashboard — Route Protection', () => {
       return
     }
 
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
 
     // Login as regular user
@@ -163,7 +160,7 @@ test.describe('Host Dashboard — Route Protection', () => {
 
   test('Utilisateur non connecté redirigé depuis /host/dashboard', async ({ page }) => {
     // Start from map, then try to navigate to host dashboard via URL
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
 
     // Use the app's router to navigate (handles basepath)
@@ -190,7 +187,7 @@ test.describe('Host — Espace Pro Button', () => {
       return
     }
 
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
     await login(page, hostEmail, hostPassword)
 

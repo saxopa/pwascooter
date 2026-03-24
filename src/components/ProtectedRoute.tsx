@@ -30,7 +30,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     }
 
     if (!user || profile?.role !== requiredRole) {
-        return <Navigate to="/" replace />
+        return <Navigate to="/map" replace />
     }
 
     return <>{children}</>

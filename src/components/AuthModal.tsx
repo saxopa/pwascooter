@@ -68,10 +68,11 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     async function handleGoogle() {
         setError(null)
         setLoading(true)
+        const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: 'https://saxopa.github.io/pwascooter/',
+                redirectTo: `${window.location.origin}${basePath}/map`,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',

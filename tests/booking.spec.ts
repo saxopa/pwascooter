@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
 import {
-  openAuthModal,
   login,
   logout,
   selectDuration,
@@ -8,7 +7,7 @@ import {
 
 test.describe('Carte & Marqueurs', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
   })
 
@@ -36,7 +35,7 @@ test.describe('Carte & Marqueurs', () => {
 
 test.describe('Réservation — Bottom Sheet', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
   })
 
@@ -80,8 +79,6 @@ test.describe('Réservation — Bottom Sheet', () => {
 
     // Get initial price
     const priceEl = page.locator('text=/\\d+\\.\\d+ €/').first()
-    const initialPrice = await priceEl.textContent()
-
     // Select 4h duration
     await selectDuration(page, '4h')
     await page.waitForTimeout(500)
@@ -151,7 +148,7 @@ test.describe('Réservation — Bottom Sheet', () => {
 
 test.describe('Page Mes Réservations', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/map')
     await page.waitForLoadState('networkidle')
   })
 

@@ -365,7 +365,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 // ────────────────────── MapView Component ────────────────────
 export default function MapView() {
     const navigate = useNavigate()
-    const { profile, isHost, refreshProfile } = useHostProfile()
+    const { profile, isHost, refreshProfile, loading: profileLoading } = useHostProfile()
     const [hosts, setHosts] = useState<Host[]>([])
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
     const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
@@ -375,7 +375,7 @@ export default function MapView() {
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
 
-    const needsRoleSelect = !!user && !!profile && !profile.role
+    const needsRoleSelect = !!user && !profileLoading && !profile?.role
 
     const filteredHosts = hosts.filter(h =>
         (!filterCharging || (h.has_charging === true)) &&
@@ -384,17 +384,25 @@ export default function MapView() {
 
     // Fetch Session & Hosts
     useEffect(() => {
+        let isMounted = true
+        let authSubscription: { unsubscribe: () => void } | null = null
+
         async function loadInitialData() {
             setLoading(true)
 
             // 1. Get Session
             const { data: authData } = await supabase.auth.getSession()
-            setUser(authData.session?.user || null)
+            if (isMounted) {
+                setUser(authData.session?.user || null)
+            }
 
             // Listen for auth changes
             const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-                setUser(session?.user || null)
+                if (isMounted) {
+                    setUser(session?.user || null)
+                }
             })
+            authSubscription = authListener.subscription
 
             // 2. Fetch hosts
             const { data: hostsData, error: err } = await supabase
@@ -402,20 +410,27 @@ export default function MapView() {
                 .select('*')
 
             if (err) {
-                setError(err.message)
+                if (isMounted) {
+                    setError(err.message)
+                }
                 console.error('Supabase error:', err)
             } else {
-                setHosts(hostsData ?? [])
+                if (isMounted) {
+                    setHosts(hostsData ?? [])
+                }
             }
 
-            setLoading(false)
-
-            return () => {
-                authListener.subscription.unsubscribe()
+            if (isMounted) {
+                setLoading(false)
             }
         }
 
         loadInitialData()
+
+        return () => {
+            isMounted = false
+            authSubscription?.unsubscribe()
+        }
     }, [])
 
     async function handleSignOut() {

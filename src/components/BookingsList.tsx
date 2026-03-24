@@ -125,7 +125,7 @@ export default function BookingsList() {
                 }}
             >
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/map')}
                     aria-label="Retour à la carte"
                     style={{
                         background: 'rgba(255,255,255,0.08)',
@@ -185,7 +185,7 @@ export default function BookingsList() {
                         </p>
                         <button
                             className="btn-primary"
-                            onClick={() => navigate('/')}
+                            onClick={() => navigate('/map')}
                         >
                             Retour à la carte
                         </button>
@@ -221,7 +221,7 @@ export default function BookingsList() {
                         </p>
                         <button
                             className="btn-primary"
-                            onClick={() => navigate('/')}
+                            onClick={() => navigate('/map')}
                         >
                             Trouver un parking
                         </button>

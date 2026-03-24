@@ -24,21 +24,51 @@ export function useHostProfile(): UseHostProfileReturn {
     const [profile, setProfile] = useState<Profile | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const fetchProfile = useCallback(async (userId: string) => {
-        const { data } = await supabase
+    const fetchProfile = useCallback(async (currentUser: User) => {
+        const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', userId)
+            .eq('id', currentUser.id)
             .single()
 
         if (data) {
             setProfile(data as Profile)
+            return
+        }
+
+        const isMissingProfile = error?.code === 'PGRST116'
+        if (!isMissingProfile) return
+
+        const metadata = currentUser.user_metadata ?? {}
+        const fallbackName =
+            metadata.nom ??
+            metadata.full_name ??
+            metadata.name ??
+            currentUser.email?.split('@')[0] ??
+            'Utilisateur'
+
+        const newProfile = {
+            id: currentUser.id,
+            email: currentUser.email ?? '',
+            nom: String(fallbackName),
+            company_name: typeof metadata.company_name === 'string' ? metadata.company_name : null,
+            ...(typeof metadata.role === 'string' ? { role: metadata.role } : {}),
+        }
+
+        const { data: insertedProfile } = await supabase
+            .from('profiles')
+            .upsert(newProfile, { onConflict: 'id' })
+            .select()
+            .single()
+
+        if (insertedProfile) {
+            setProfile(insertedProfile as Profile)
         }
     }, [])
 
     const refreshProfile = useCallback(async () => {
         if (user) {
-            await fetchProfile(user.id)
+            await fetchProfile(user)
         }
     }, [user, fetchProfile])
 
@@ -49,7 +79,7 @@ export function useHostProfile(): UseHostProfileReturn {
             setUser(currentUser)
 
             if (currentUser) {
-                await fetchProfile(currentUser.id)
+                await fetchProfile(currentUser)
             }
             setLoading(false)
         }
@@ -60,7 +90,7 @@ export function useHostProfile(): UseHostProfileReturn {
             const newUser = session?.user ?? null
             setUser(newUser)
             if (newUser) {
-                await fetchProfile(newUser.id)
+                await fetchProfile(newUser)
             } else {
                 setProfile(null)
             }

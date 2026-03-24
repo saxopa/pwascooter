@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     ArrowLeft,
@@ -31,12 +31,7 @@ export default function HostDashboard() {
     const [editingSpace, setEditingSpace] = useState<Host | null>(null)
     const [togglingId, setTogglingId] = useState<string | null>(null)
 
-    useEffect(() => {
-        if (!user) return
-        loadData()
-    }, [user])
-
-    async function loadData() {
+    const loadData = useCallback(async () => {
         if (!user) return
         setLoading(true)
 
@@ -67,7 +62,14 @@ export default function HostDashboard() {
         }
 
         setLoading(false)
-    }
+    }, [user])
+
+    useEffect(() => {
+        if (!user) return
+        queueMicrotask(() => {
+            void loadData()
+        })
+    }, [user, loadData])
 
     async function toggleActive(space: Host) {
         setTogglingId(space.id)
@@ -116,7 +118,7 @@ export default function HostDashboard() {
                 }}
             >
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/map')}
                     aria-label="Retour à la carte"
                     style={{
                         background: 'rgba(255,255,255,0.08)',
