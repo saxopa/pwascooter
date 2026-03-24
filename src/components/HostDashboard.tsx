@@ -19,7 +19,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useHostProfile } from '../hooks/useHostProfile'
 import HostSpaceForm from './HostSpaceForm'
 import type { Tables } from '../types/supabase'
-import { getBookingPickupCode } from '../lib/bookingCode'
+import { extractBookingPickupCode, getBookingPickupCode } from '../lib/bookingCode'
 
 type Host = Tables<'hosts'>
 type Booking = Tables<'bookings'>
@@ -118,17 +118,47 @@ export default function HostDashboard() {
     }
 
     async function validateBookingByCode(rawCode: string) {
-        const normalizedCode = rawCode.trim().toUpperCase()
+        const normalizedCode = extractBookingPickupCode(rawCode)
         if (!normalizedCode) return
 
         setValidating(true)
         setValidationError(null)
         setValidationSuccess(null)
 
-        const targetBooking = recentBookings.find((booking) => getBookingPickupCode(booking.id) === normalizedCode)
+        const hostSpaceIds = spaces.map((space) => space.id)
+        if (hostSpaceIds.length === 0) {
+            setValidationError('Aucune place commerçant n’est disponible pour valider ce code.')
+            setValidating(false)
+            return
+        }
+
+        let targetBooking = recentBookings.find((booking) => getBookingPickupCode(booking.id) === normalizedCode)
 
         if (!targetBooking) {
-            setValidationError('Aucune réservation ne correspond à ce code dans vos places.')
+            const hostMap = new Map(spaces.map((space) => [space.id, space.name]))
+            const { data: hostBookingsData, error: hostBookingsErr } = await supabase
+                .from('bookings')
+                .select('*')
+                .in('host_id', hostSpaceIds)
+                .order('created_at', { ascending: false })
+
+            if (hostBookingsErr) {
+                setValidationError(hostBookingsErr.message)
+                setValidating(false)
+                return
+            }
+
+            const refreshedBookings = ((hostBookingsData ?? []) as Booking[]).map((booking) => ({
+                ...booking,
+                hostName: hostMap.get(booking.host_id) ?? 'Place inconnue',
+            }))
+
+            setRecentBookings(refreshedBookings)
+            targetBooking = refreshedBookings.find((booking) => getBookingPickupCode(booking.id) === normalizedCode)
+        }
+
+        if (!targetBooking) {
+            setValidationError(`Aucune réservation ne correspond au code ${normalizedCode} dans vos places.`)
             setValidating(false)
             return
         }
