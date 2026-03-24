@@ -32,11 +32,6 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
                 throw new Error('Session utilisateur introuvable. Reconnecte-toi puis réessaie.')
             }
 
-            const { error: updateAuthErr } = await supabase.auth.updateUser({
-                data: metadata,
-            })
-            if (updateAuthErr) throw updateAuthErr
-
             const fallbackName =
                 authUser.user_metadata?.nom ??
                 authUser.user_metadata?.full_name ??
@@ -57,6 +52,12 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
             if (updateProfileErr) throw updateProfileErr
 
             await onComplete()
+
+            // Best effort only: the app authorization relies on `profiles.role`.
+            // Do not block the UX if auth metadata update is slow or rejected.
+            supabase.auth.updateUser({
+                data: metadata,
+            }).catch(() => undefined)
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Impossible d’enregistrer votre rôle.')
         } finally {
