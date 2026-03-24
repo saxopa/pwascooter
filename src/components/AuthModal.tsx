@@ -28,10 +28,12 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
 
         try {
             if (mode === 'register') {
-                const metadata: Record<string, string> = { nom }
-                if (isHost) {
-                    metadata.role = 'host'
-                    if (companyName.trim()) metadata.company_name = companyName.trim()
+                const metadata: Record<string, string> = {
+                    nom,
+                    role: isHost ? 'host' : 'user',
+                }
+                if (isHost && companyName.trim()) {
+                    metadata.company_name = companyName.trim()
                 }
 
                 const { error: signUpError } = await supabase.auth.signUp({

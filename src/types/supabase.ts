@@ -108,7 +108,7 @@ export type Database = {
                     email: string
                     id: string
                     nom: string
-                    role: string
+                    role: string | null
                 }
                 Insert: {
                     company_name?: string | null

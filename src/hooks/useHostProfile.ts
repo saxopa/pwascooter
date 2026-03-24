@@ -6,7 +6,7 @@ interface Profile {
     id: string
     nom: string
     email: string
-    role: 'user' | 'host' | 'admin'
+    role: 'user' | 'host' | 'admin' | null
     company_name: string | null
     created_at: string | null
 }

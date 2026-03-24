@@ -28,6 +28,7 @@ import ReactDOMServer from 'react-dom/server'
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 import AuthModal from './AuthModal'
+import RoleSelectModal from './RoleSelectModal'
 import { useHostProfile } from '../hooks/useHostProfile'
 
 type Host = Tables<'hosts'>
@@ -364,7 +365,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 // ────────────────────── MapView Component ────────────────────
 export default function MapView() {
     const navigate = useNavigate()
-    const { profile, isHost } = useHostProfile()
+    const { profile, isHost, refreshProfile } = useHostProfile()
     const [hosts, setHosts] = useState<Host[]>([])
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
     const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
@@ -373,7 +374,8 @@ export default function MapView() {
     const [showAuthModal, setShowAuthModal] = useState(false)
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
-    void profile
+
+    const needsRoleSelect = !!user && !!profile && !profile.role
 
     const filteredHosts = hosts.filter(h =>
         (!filterCharging || (h.has_charging === true)) &&
@@ -649,6 +651,14 @@ export default function MapView() {
                 <AuthModal
                     onClose={() => setShowAuthModal(false)}
                     onSuccess={() => setShowAuthModal(false)}
+                />
+            )}
+
+            {/* Role Selection Modal (post-Google OAuth) */}
+            {needsRoleSelect && (
+                <RoleSelectModal
+                    userId={user.id}
+                    onComplete={refreshProfile}
                 />
             )}
         </div>
