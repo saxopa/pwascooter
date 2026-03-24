@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  gotoRoute,
   login,
   logout,
 } from './utils/test-helpers'
@@ -14,8 +15,7 @@ test.describe('Host Dashboard & Spaces', () => {
       return
     }
 
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
     await login(page, hostEmail, hostPassword)
   })
 
@@ -26,11 +26,10 @@ test.describe('Host Dashboard & Spaces', () => {
   test('Dashboard Host — page loads with stats', async ({ page }) => {
     if (!hostEmail) { test.skip(); return }
 
-    await page.goto('/host/dashboard')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/host/dashboard')
 
     // Should stay on dashboard (not redirected)
-    await expect(page).toHaveURL(/\/host\/dashboard/)
+    await expect(page).toHaveURL(/#\/host\/dashboard/)
 
     // Header should show "Espace Pro"
     await expect(page.locator('h1:has-text("Espace Pro")')).toBeVisible()
@@ -49,8 +48,7 @@ test.describe('Host Dashboard & Spaces', () => {
   test('Host crée une place (formulaire)', async ({ page }) => {
     if (!hostEmail) { test.skip(); return }
 
-    await page.goto('/host/dashboard')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/host/dashboard')
 
     // Click "Ajouter" button
     await page.locator('button:has-text("Ajouter")').click()
@@ -92,8 +90,7 @@ test.describe('Host Dashboard & Spaces', () => {
   test('Toggle place active/inactive', async ({ page }) => {
     if (!hostEmail) { test.skip(); return }
 
-    await page.goto('/host/dashboard')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/host/dashboard')
 
     // Find the first "Désactiver" or "Activer" button
     const toggleBtn = page.locator('button:has-text("Désactiver"), button:has-text("Activer")').first()
@@ -120,14 +117,78 @@ test.describe('Host Dashboard & Spaces', () => {
   test('Bouton retour vers la carte', async ({ page }) => {
     if (!hostEmail) { test.skip(); return }
 
-    await page.goto('/host/dashboard')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/host/dashboard')
 
     // Click the back button (ArrowLeft, aria-label "Retour à la carte")
     await page.locator('button[aria-label="Retour à la carte"]').click()
 
     // Should navigate back to map
-    await expect(page).toHaveURL(/\/pwascooter\/map$/)
+    await expect(page).toHaveURL(/#\/map$/)
+  })
+
+  test('Scanner caméra remplit et valide un code', async ({ page }) => {
+    if (!hostEmail) { test.skip(); return }
+
+    await page.addInitScript(() => {
+      class MockBarcodeDetector {
+        static async getSupportedFormats() {
+          return ['code_39']
+        }
+
+        async detect() {
+          return [{ rawValue: 'SCN12345' }]
+        }
+      }
+
+      Object.defineProperty(window, 'BarcodeDetector', {
+        configurable: true,
+        writable: true,
+        value: MockBarcodeDetector,
+      })
+
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: {
+          getUserMedia: async () => new MediaStream(),
+        },
+      })
+
+      Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+        configurable: true,
+        value: async () => undefined,
+      })
+    })
+
+    await page.route('**/rest/v1/rpc/validate_booking_by_code', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: '11111111-1111-1111-1111-111111111111',
+          host_id: '22222222-2222-2222-2222-222222222222',
+          user_id: '33333333-3333-3333-3333-333333333333',
+          start_time: new Date().toISOString(),
+          end_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          total_price: 4,
+          status: 'active',
+          pickup_code: 'SCN12345',
+          created_at: new Date().toISOString(),
+        }),
+      })
+    })
+
+    await gotoRoute(page, '/host/dashboard')
+
+    const hasSpaces = await page.locator('text=Mes places (0)').isVisible().catch(() => false)
+    if (hasSpaces) {
+      test.skip()
+      return
+    }
+
+    await page.getByTestId('open-scanner-button').click()
+    await expect(page.getByTestId('scanner-modal')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('validation-success')).toContainText('Dépôt validé pour', { timeout: 10000 })
+    await expect(page.getByTestId('validation-code-input')).toHaveValue('', { timeout: 5000 })
   })
 })
 
@@ -141,32 +202,28 @@ test.describe('Host Dashboard — Route Protection', () => {
       return
     }
 
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
 
     // Login as regular user
     await login(page, userEmail, userPassword)
 
     // Try to access host dashboard
-    await page.goto('/host/dashboard')
-    await page.waitForTimeout(3000)
+    await gotoRoute(page, '/host/dashboard')
 
     // Should be redirected away from host dashboard (to /)
     const url = page.url()
-    expect(url).not.toContain('/host/dashboard')
+    expect(url).not.toContain('#/host/dashboard')
 
     await logout(page).catch(() => {})
   })
 
   test('Utilisateur non connecté redirigé depuis /host/dashboard', async ({ page }) => {
     // Start from map, then try to navigate to host dashboard via URL
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
 
     // Use the app's router to navigate (handles basepath)
     await page.evaluate(() => {
-      window.history.pushState({}, '', '/pwascooter/host/dashboard')
-      window.dispatchEvent(new PopStateEvent('popstate'))
+      window.location.hash = '#/host/dashboard'
     })
     await page.waitForTimeout(3000)
 
@@ -187,8 +244,7 @@ test.describe('Host — Espace Pro Button', () => {
       return
     }
 
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
     await login(page, hostEmail, hostPassword)
 
     // "Espace Pro" button should be visible in the header
@@ -206,8 +262,7 @@ test.describe('Host — Espace Pro Button', () => {
       return
     }
 
-    await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/')
     await login(page, userEmail, userPassword)
 
     // "Espace Pro" button should NOT be visible

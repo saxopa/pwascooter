@@ -18,6 +18,7 @@ export default function BookingCodeCard({
     return (
         <div
             className="glass-card"
+            data-testid="booking-code-card"
             style={{
                 padding: compact ? '12px 14px' : '16px 16px 14px',
                 background: 'rgba(255,255,255,0.05)',
@@ -27,6 +28,7 @@ export default function BookingCodeCard({
                 {title}
             </div>
             <div
+                data-testid="booking-code-value"
                 style={{
                     marginTop: 6,
                     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',

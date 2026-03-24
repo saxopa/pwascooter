@@ -14,10 +14,12 @@ import {
     ToggleRight,
     Pencil,
     ShieldCheck,
+    ScanLine,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useHostProfile } from '../hooks/useHostProfile'
 import HostSpaceForm from './HostSpaceForm'
+import BarcodeScannerModal from './BarcodeScannerModal'
 import type { Tables } from '../types/supabase'
 import { extractBookingPickupCode, resolveBookingPickupCode } from '../lib/bookingCode'
 
@@ -40,6 +42,7 @@ export default function HostDashboard() {
     const [validating, setValidating] = useState(false)
     const [validationError, setValidationError] = useState<string | null>(null)
     const [validationSuccess, setValidationSuccess] = useState<string | null>(null)
+    const [showScanner, setShowScanner] = useState(false)
 
     const loadData = useCallback(async () => {
         if (!user) return
@@ -158,6 +161,12 @@ export default function HostDashboard() {
         setValidating(false)
     }
 
+    function handleScannerDetected(rawCode: string) {
+        setValidationCode(rawCode)
+        setShowScanner(false)
+        void validateBookingByCode(rawCode)
+    }
+
     if (showForm || editingSpace) {
         return (
             <HostSpaceForm
@@ -172,6 +181,11 @@ export default function HostDashboard() {
 
     return (
         <div style={{ minHeight: '100dvh', background: 'var(--color-bg-dark)', display: 'flex', flexDirection: 'column' }}>
+            <BarcodeScannerModal
+                open={showScanner}
+                onClose={() => setShowScanner(false)}
+                onDetected={handleScannerDetected}
+            />
             {/* Header */}
             <div
                 style={{
@@ -259,6 +273,7 @@ export default function HostDashboard() {
                             </p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <input
+                                    data-testid="validation-code-input"
                                     type="text"
                                     value={validationCode}
                                     onChange={(e) => setValidationCode(e.target.value.toUpperCase())}
@@ -276,6 +291,30 @@ export default function HostDashboard() {
                                     }}
                                 />
                                 <button
+                                    data-testid="open-scanner-button"
+                                    type="button"
+                                    onClick={() => setShowScanner(true)}
+                                    disabled={validating}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 8,
+                                        padding: '12px 14px',
+                                        background: 'rgba(0,206,201,0.12)',
+                                        border: '1px solid rgba(0,206,201,0.2)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: 'var(--color-accent)',
+                                        cursor: validating ? 'not-allowed' : 'pointer',
+                                        opacity: validating ? 0.6 : 1,
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    <ScanLine size={16} />
+                                    Scanner
+                                </button>
+                                <button
+                                    data-testid="validate-code-button"
                                     className="btn-primary"
                                     type="button"
                                     onClick={() => validateBookingByCode(validationCode)}
@@ -294,12 +333,12 @@ export default function HostDashboard() {
                                 </button>
                             </div>
                             {validationError && (
-                                <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,107,107,0.15)', color: 'var(--color-danger)', fontSize: '0.84rem' }}>
+                                <div data-testid="validation-error" style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,107,107,0.15)', color: 'var(--color-danger)', fontSize: '0.84rem' }}>
                                     {validationError}
                                 </div>
                             )}
                             {validationSuccess && (
-                                <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(0,184,148,0.15)', color: 'var(--color-success)', fontSize: '0.84rem' }}>
+                                <div data-testid="validation-success" style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(0,184,148,0.15)', color: 'var(--color-success)', fontSize: '0.84rem' }}>
                                     {validationSuccess}
                                 </div>
                             )}
@@ -457,10 +496,11 @@ export default function HostDashboard() {
                                                     </span>
                                                 </div>
                                                 <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                                                    <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', letterSpacing: '0.16em', fontWeight: 800 }}>
+                                                    <div data-testid="recent-booking-code" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', letterSpacing: '0.16em', fontWeight: 800 }}>
                                                         {resolveBookingPickupCode(booking.pickup_code, booking.id)}
                                                     </div>
                                                     <button
+                                                        data-testid="recent-booking-validate-button"
                                                         type="button"
                                                         onClick={() => validateBookingByCode(resolveBookingPickupCode(booking.pickup_code, booking.id))}
                                                         disabled={booking.status === 'active' || validating}

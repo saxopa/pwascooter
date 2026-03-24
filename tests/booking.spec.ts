@@ -1,14 +1,26 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
+  gotoRoute,
   login,
   logout,
   selectDuration,
 } from './utils/test-helpers'
 
+async function openFirstMarker(page: Page) {
+  const marker = page.locator('.leaflet-marker-icon').first()
+  const hasMarker = await marker.isVisible({ timeout: 5000 }).catch(() => false)
+
+  if (!hasMarker) {
+    return false
+  }
+
+  await marker.evaluate((node: HTMLElement) => node.click())
+  return true
+}
+
 test.describe('Carte & Marqueurs', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
   })
 
   test('La carte Leaflet se charge', async ({ page }) => {
@@ -35,22 +47,18 @@ test.describe('Carte & Marqueurs', () => {
 
 test.describe('Réservation — Bottom Sheet', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
   })
 
   test('Clic sur marqueur ouvre le bottom sheet', async ({ page }) => {
     await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(3000)
 
-    const marker = page.locator('.leaflet-marker-icon').first()
-    const hasMarker = await marker.isVisible({ timeout: 5000 }).catch(() => false)
-    if (!hasMarker) {
+    const opened = await openFirstMarker(page)
+    if (!opened) {
       test.skip()
       return
     }
-
-    await marker.click()
 
     // Bottom sheet should appear with "Choisir une durée"
     await expect(page.locator('text=Choisir une durée')).toBeVisible({ timeout: 5000 })
@@ -68,13 +76,10 @@ test.describe('Réservation — Bottom Sheet', () => {
     await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(3000)
 
-    const marker = page.locator('.leaflet-marker-icon').first()
-    if (!(await marker.isVisible({ timeout: 5000 }).catch(() => false))) {
+    if (!(await openFirstMarker(page))) {
       test.skip()
       return
     }
-
-    await marker.click()
     await expect(page.locator('text=Total calculé')).toBeVisible({ timeout: 5000 })
 
     // Get initial price
@@ -93,13 +98,10 @@ test.describe('Réservation — Bottom Sheet', () => {
     await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(3000)
 
-    const marker = page.locator('.leaflet-marker-icon').first()
-    if (!(await marker.isVisible({ timeout: 5000 }).catch(() => false))) {
+    if (!(await openFirstMarker(page))) {
       test.skip()
       return
     }
-
-    await marker.click()
     await expect(page.locator('text=Choisir une durée')).toBeVisible({ timeout: 5000 })
 
     // When not logged in, should see "Se connecter pour réserver"
@@ -120,13 +122,10 @@ test.describe('Réservation — Bottom Sheet', () => {
     await page.waitForTimeout(1000)
 
     // Click a marker
-    const marker = page.locator('.leaflet-marker-icon').first()
-    if (!(await marker.isVisible({ timeout: 5000 }).catch(() => false))) {
+    if (!(await openFirstMarker(page))) {
       test.skip()
       return
     }
-
-    await marker.click()
     await expect(page.locator('text=Choisir une durée')).toBeVisible({ timeout: 5000 })
 
     // Select 1h
@@ -141,6 +140,8 @@ test.describe('Réservation — Bottom Sheet', () => {
     // Should show "Réservation confirmée !" or an error
     const successOrError = page.locator('text=Réservation confirmée, text=complet, text=erreur').first()
     await expect(successOrError).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('booking-code-card')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('booking-code-value')).toContainText(/[A-Z0-9]{8}/)
 
     await logout(page).catch(() => {})
   })
@@ -148,8 +149,7 @@ test.describe('Réservation — Bottom Sheet', () => {
 
 test.describe('Page Mes Réservations', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/map')
-    await page.waitForLoadState('networkidle')
+    await gotoRoute(page, '/map')
   })
 
   test('Navigation vers /bookings via le bouton header', async ({ page }) => {
@@ -160,7 +160,7 @@ test.describe('Page Mes Réservations', () => {
     await bookingsBtn.click()
 
     // Should navigate to /bookings
-    await expect(page).toHaveURL(/\/bookings/)
+    await expect(page).toHaveURL(/#\/bookings/)
   })
 
   test('Page /bookings se charge', async ({ page }) => {

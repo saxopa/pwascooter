@@ -11,6 +11,13 @@ export interface TestUser {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
+/** Navigate inside the HashRouter app using the Vite base URL. */
+export async function gotoRoute(page: Page, route: string): Promise<void> {
+  const normalizedRoute = route.startsWith('/') ? route : `/${route}`
+  await page.goto(`/#${normalizedRoute}`)
+  await page.waitForLoadState('networkidle')
+}
+
 /** Generate a unique test email */
 export function generateTestEmail(prefix = 'test'): string {
   const ts = Date.now()
