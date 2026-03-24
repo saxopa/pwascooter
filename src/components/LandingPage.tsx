@@ -14,11 +14,31 @@ const featureCardStyle: React.CSSProperties = {
 export default function LandingPage() {
     const navigate = useNavigate()
     const [showAuthModal, setShowAuthModal] = useState(false)
+    const [oauthError, setOauthError] = useState<string | null>(null)
 
     useEffect(() => {
         let isMounted = true
 
         async function restoreSession() {
+            const params = new URLSearchParams(window.location.search)
+            const authCode = params.get('code')
+            const errorDescription = params.get('error_description')
+
+            if (errorDescription && isMounted) {
+                setOauthError(decodeURIComponent(errorDescription))
+                return
+            }
+
+            if (authCode) {
+                const { error } = await supabase.auth.exchangeCodeForSession(authCode)
+                if (error) {
+                    if (isMounted) {
+                        setOauthError(error.message)
+                    }
+                    return
+                }
+            }
+
             const { data } = await supabase.auth.getSession()
             if (isMounted && data.session?.user) {
                 navigate('/map', { replace: true })
@@ -183,6 +203,21 @@ export default function LandingPage() {
                                 Reservation anti-surbooking
                             </span>
                         </div>
+
+                        {oauthError && (
+                            <div
+                                className="glass-card"
+                                style={{
+                                    padding: '12px 14px',
+                                    background: 'rgba(255,107,107,0.12)',
+                                    border: '1px solid rgba(255,107,107,0.24)',
+                                    color: 'var(--color-danger)',
+                                    fontSize: '0.9rem',
+                                }}
+                            >
+                                Erreur de connexion Google : {oauthError}
+                            </div>
+                        )}
                     </div>
 
                     <div
