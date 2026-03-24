@@ -200,6 +200,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
     const [confirmedEndTime, setConfirmedEndTime] = useState<string | null>(null)
 
     const totalPrice = Number(host.price_per_hour) * selectedDuration
+    const isSelfBooking = !!user && host.owner_id === user.id
 
     async function handleBook() {
         if (!user) return
@@ -233,6 +234,10 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             if (!rpcData?.success) {
                 if (rpcData?.error === 'PARKING_FULL') {
                     setError('Ce parking est complet pour ce créneau. Essaie une autre heure ou un autre parking.')
+                } else if (rpcData?.error === 'SELF_BOOKING_FORBIDDEN') {
+                    setError('Vous ne pouvez pas réserver votre propre place commerçant.')
+                } else if (rpcData?.error === 'HOST_NOT_AVAILABLE') {
+                    setError('Cette place n’est plus disponible pour le moment.')
                 } else {
                     throw new Error(rpcData?.error ?? 'Erreur lors de la réservation.')
                 }
@@ -443,6 +448,12 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     </div>
                 )}
 
+                {isSelfBooking && (
+                    <div style={{ color: 'var(--color-warning)', fontSize: '0.85rem', marginBottom: 16, padding: 12, background: 'rgba(253,203,110,0.14)', borderRadius: 'var(--radius-sm)' }}>
+                        Cette offre vous appartient. Une auto-réservation n’est pas autorisée.
+                    </div>
+                )}
+
                 {/* Auth / CTA Button */}
                 {!user ? (
                     <button
@@ -462,10 +473,11 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     <button
                         className="btn-primary"
                         onClick={handleBook}
-                        disabled={isPaying}
+                        disabled={isPaying || isSelfBooking}
                         style={{
                             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                            opacity: isPaying ? 0.7 : 1, cursor: isPaying ? 'not-allowed' : 'pointer'
+                            opacity: isPaying || isSelfBooking ? 0.7 : 1,
+                            cursor: isPaying || isSelfBooking ? 'not-allowed' : 'pointer'
                         }}
                     >
                         {isPaying ? (
