@@ -42,10 +42,10 @@
 └─────────────────┘     └─────────────────┘     └─────────────────┘
         │                        │                        │
         ▼                        ▼                        ▼
-   Crée un compte           Carte interactive        Réserve une place
-   Ajoute sa place          avec filtres             Paiement sécurisé
-   Définit le prix          (prix, recharge)         Stationne en sécurité
-   Gagne de l'argent        Géolocalisation          Reçoit confirmation
+   Crée un compte           Landing + carte          Réserve une place
+   Ajoute sa place          avec filtres             Paiement simulé
+   Définit le prix          OAuth + rôles            Reçoit un code dépôt
+   Valide un dépôt          Géolocalisation          Dépose en sécurité
 ```
 
 ### 💰 Modèle Économique
@@ -61,21 +61,26 @@
 ## ✨ Fonctionnalités Clés
 
 ### Pour les Utilisateurs 🛴
+- 🏠 **Landing page mobile-first** avec CTA vers la carte
 - 🗺️ **Carte interactive** avec géolocalisation (Leaflet)
 - 🔍 **Filtres intelligents** : prix, recharge électrique, disponibilité
 - 📅 **Réservation en temps réel** avec calendrier
 - 💳 **Paiement sécurisé** via Stripe (simulation)
+- 🎫 **Code de dépôt / code-barres** affiché après réservation
 - 📱 **PWA** : Fonctionne hors-ligne, installable sur mobile
 
 ### Pour les Commerçants 🏪
 - 📊 **Dashboard Host** avec statistiques (revenus, réservations)
 - ➕ **CRUD complet** des places de parking
 - 🔔 **Gestion des disponibilités** en temps réel
-- 🛡️ **Authentification sécurisée** (email + Google OAuth)
+- ✅ **Validation des dépôts** via code saisi côté dashboard
+- 🛡️ **Authentification sécurisée** (email + Google OAuth + choix de rôle)
 
 ### Sécurité & Fiabilité 🔒
 - ✅ **Anti-surbooking** : Vérification capacité en temps réel
 - ✅ **RLS Supabase** : Chaque utilisateur voit uniquement SES données
+- ✅ **Validation serveur** : RPC Supabase pour activer un dépôt à partir d'un code
+- ✅ **Reload stable** sur GitHub Pages avec routage hash + restauration de session
 - ✅ **Tests E2E** : 12 scénarios Playwright pour garantir la qualité
 
 ---
@@ -88,8 +93,8 @@
 | **React 19** | UI moderne avec hooks et concurrent features |
 | **TypeScript** | Typage strict, zéro `any` |
 | **Vite** | Build ultra-rapide, HMR instantané |
-| **TailwindCSS v4** | Styling utility-first, design glassmorphism |
-| **React Router v7** | Navigation SPA avec basename pour GitHub Pages |
+| **CSS custom + design tokens** | UI glassmorphism mobile-first |
+| **React Router v7** | Navigation SPA via `HashRouter` pour GitHub Pages |
 | **Leaflet** | Cartographie interactive avec tuiles CARTO Dark |
 | **Lucide React** | Icônes modernes et cohérentes |
 
@@ -98,7 +103,7 @@
 |-------------|-------|
 | **Supabase** | PostgreSQL + Auth + Realtime |
 | **Row Level Security** | Isolation des données par utilisateur |
-| **PostgreSQL Functions** | Logique métier côté BDD (anti-surbooking) |
+| **PostgreSQL Functions / RPC** | Anti-surbooking + validation dépôt par code |
 | **GitHub Actions** | CI/CD automatique vers GitHub Pages |
 
 ### Testing & Qualité
@@ -116,8 +121,8 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                        CLIENT (Browser)                      │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   MapView   │  │  HostDash   │  │    BookingsList     │  │
-│  │  (Leaflet)  │  │   (CRUD)    │  │   (Réservations)    │  │
+│  │ LandingPage │  │   MapView   │  │  HostDashboard      │  │
+│  │   (CTA)     │  │  (Leaflet)  │  │ CRUD + Validation   │  │
 │  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
 │         └─────────────────┼────────────────────┘             │
 │                           │                                  │
@@ -129,12 +134,13 @@
 ┌───────────────────────────┼───────────────────────────────────┐
 │                      SUPABASE (Cloud)                          │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │
-│  │   Auth      │  │ PostgreSQL  │  │   Realtime API      │    │
-│  │ (Email/GOAuth)│  │  (RLS)      │  │  (Subscriptions)    │    │
+│  │   Auth      │  │ PostgreSQL  │  │   RPC / Functions    │    │
+│  │ (Email/OAuth│  │  (RLS)      │  │ booking + validation │    │
+│  │  + roles)   │  │             │  │                      │    │
 │  └─────────────┘  └──────┬──────┘  └─────────────────────┘    │
 │                          │                                     │
 │  ┌───────────────────────┴────────────────────────┐            │
-│  │  Tables: profiles | hosts | bookings | feedback│            │
+│  │        Tables: profiles | hosts | bookings     │            │
 │  └────────────────────────────────────────────────┘            │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -170,6 +176,18 @@ VITE_SUPABASE_URL=https://votre-projet.supabase.co
 VITE_SUPABASE_ANON_KEY=votre-cle-anon
 ```
 
+### 3bis. Appliquer la migration Supabase
+
+Exécuter dans Supabase SQL Editor :
+
+[`supabase/migrations/20260324_add_pickup_code_and_validation_rpc.sql`](/Users/alexis/Desktop/pwascooter/supabase/migrations/20260324_add_pickup_code_and_validation_rpc.sql)
+
+Cette migration :
+- ajoute `bookings.pickup_code`
+- backfill les réservations existantes
+- génère automatiquement un code sur les nouvelles réservations
+- crée la RPC `validate_booking_by_code`
+
 ### 4. Lancer le serveur de développement
 
 ```bash
@@ -177,6 +195,15 @@ npm run dev
 ```
 
 L'application est accessible sur `http://localhost:5173/pwascooter/`
+
+### Routes principales
+
+| Route | Usage |
+|-------|-------|
+| `/#/` | Landing page |
+| `/#/map` | Carte et réservation |
+| `/#/bookings` | Réservations utilisateur |
+| `/#/host/dashboard` | Dashboard commerçant |
 
 ---
 
@@ -216,6 +243,12 @@ Le projet est configuré pour un déploiement automatique sur **GitHub Pages** v
 3. Déploiement sur `gh-pages`
 4. Site live sur `https://saxopa.github.io/pwascooter/`
 
+### Notes GitHub Pages
+
+- l’application utilise `HashRouter` pour éviter les erreurs `404` au refresh
+- le retour Google OAuth est restauré côté app avant redirection vers `#/map`
+- un bootstrap de session protège les reloads sur `/map`, `/bookings` et `/host/dashboard`
+
 ### Configuration GitHub Actions
 
 Voir `.github/workflows/deploy.yml`
@@ -229,8 +262,8 @@ Voir `.github/workflows/deploy.yml`
 profiles
 ├── id: uuid (PK)
 ├── email: text
-├── full_name: text
-├── role: text ('user' | 'host' | null)
+├── nom: text
+├── role: text ('user' | 'host' | 'admin' | null)
 └── company_name: text
 
 -- Table des places de parking (RLS activé)
@@ -238,11 +271,10 @@ hosts
 ├── id: uuid (PK)
 ├── owner_id: uuid → profiles.id
 ├── name: text
-├── address: text
 ├── latitude: float8
 ├── longitude: float8
 ├── capacity: int4
-├── price_per_hour: int4
+├── price_per_hour: numeric
 ├── has_charging: boolean
 └── is_active: boolean
 
@@ -253,9 +285,17 @@ bookings
 ├── host_id: uuid → hosts.id
 ├── start_time: timestamptz
 ├── end_time: timestamptz
-├── total_price: int4
-└── status: enum ('pending', 'confirmed', 'cancelled', 'completed')
+├── total_price: numeric
+├── pickup_code: text unique
+└── status: enum ('pending', 'active', 'cancelled', 'completed')
 ```
+
+### Fonctions PostgreSQL / RPC
+
+| Fonction | Rôle |
+|----------|------|
+| `book_parking_spot` | Crée une réservation en évitant le surbooking |
+| `validate_booking_by_code` | Valide le dépôt d’un client côté commerçant à partir du `pickup_code` |
 
 ---
 
@@ -263,10 +303,13 @@ bookings
 
 - [x] **Phase 1** : MVP avec carte et réservation
 - [x] **Phase 2** : Interface Host complète
-- [x] **Phase 3** : Tests E2E Playwright (12 scénarios)
-- [ ] **Phase 4** : Intégration Stripe (paiement réel)
-- [ ] **Phase 5** : Système de feedback utilisateur
-- [ ] **Phase 6** : Application mobile native (React Native)
+- [x] **Phase 3** : Tests E2E Playwright
+- [x] **Phase 4** : Landing page + Google OAuth + choix de rôle
+- [x] **Phase 5** : Code de dépôt + validation commerçant via RPC
+- [x] **Phase 6** : Stabilisation du reload GitHub Pages
+- [ ] **Phase 7** : Intégration Stripe réelle
+- [ ] **Phase 8** : Scanner caméra pour lecture du code-barres
+- [ ] **Phase 9** : Feedback et historique avancé
 
 ---
 
