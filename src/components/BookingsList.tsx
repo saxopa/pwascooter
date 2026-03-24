@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
+import BookingCodeCard from './BookingCodeCard'
 
 type Booking = Tables<'bookings'> & {
     hosts: Pick<Tables<'hosts'>, 'name' | 'latitude' | 'longitude'> | null
@@ -274,6 +275,17 @@ export default function BookingsList() {
                                             {formatDuration(booking.start_time, booking.end_time)}
                                         </span>
                                     </div>
+
+                                    {booking.status !== 'cancelled' && (
+                                        <div style={{ marginTop: 14 }}>
+                                            <BookingCodeCard
+                                                bookingId={booking.id}
+                                                compact
+                                                title="Code de validation"
+                                                subtitle="Présente ce code au commerçant lors du dépôt."
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })}

@@ -30,6 +30,7 @@ import type { Tables } from '../types/supabase'
 import AuthModal from './AuthModal'
 import RoleSelectModal from './RoleSelectModal'
 import { useHostProfile } from '../hooks/useHostProfile'
+import BookingCodeCard from './BookingCodeCard'
 
 type Host = Tables<'hosts'>
 
@@ -130,6 +131,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
     const [isPaying, setIsPaying] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null)
 
     const totalPrice = Number(host.price_per_hour) * selectedDuration
 
@@ -170,6 +172,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             }
 
             // 5. Succès !
+            setConfirmedBookingId(rpcData.booking_id ?? null)
             setSuccess(true)
         } catch (err: unknown) {
             console.error(err)
@@ -212,6 +215,16 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24 }}>
                     Votre place chez {host.name} est réservée pour {selectedDuration}h.
                 </p>
+
+                {confirmedBookingId && (
+                    <div style={{ marginBottom: 20, textAlign: 'left' }}>
+                        <BookingCodeCard
+                            bookingId={confirmedBookingId}
+                            title="Code a presenter"
+                            subtitle="Le commerçant peut scanner ou saisir ce code pour valider votre dépôt."
+                        />
+                    </div>
+                )}
 
                 <button
                     className="btn-primary"

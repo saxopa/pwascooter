@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     ArrowLeft,
+    CheckCircle2,
     MapPin,
     Plus,
     Zap,
@@ -12,13 +13,17 @@ import {
     ToggleLeft,
     ToggleRight,
     Pencil,
+    ShieldCheck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useHostProfile } from '../hooks/useHostProfile'
 import HostSpaceForm from './HostSpaceForm'
 import type { Tables } from '../types/supabase'
+import { getBookingPickupCode } from '../lib/bookingCode'
 
 type Host = Tables<'hosts'>
+type Booking = Tables<'bookings'>
+type HostBooking = Booking & { hostName: string }
 
 export default function HostDashboard() {
     const navigate = useNavigate()
@@ -30,6 +35,11 @@ export default function HostDashboard() {
     const [showForm, setShowForm] = useState(false)
     const [editingSpace, setEditingSpace] = useState<Host | null>(null)
     const [togglingId, setTogglingId] = useState<string | null>(null)
+    const [recentBookings, setRecentBookings] = useState<HostBooking[]>([])
+    const [validationCode, setValidationCode] = useState('')
+    const [validating, setValidating] = useState(false)
+    const [validationError, setValidationError] = useState<string | null>(null)
+    const [validationSuccess, setValidationSuccess] = useState<string | null>(null)
 
     const loadData = useCallback(async () => {
         if (!user) return
@@ -46,6 +56,7 @@ export default function HostDashboard() {
 
         if (hostSpaces.length > 0) {
             const spaceIds = hostSpaces.map(s => s.id)
+            const hostMap = new Map(hostSpaces.map(space => [space.id, space.name]))
             const startOfMonth = new Date()
             startOfMonth.setDate(1)
             startOfMonth.setHours(0, 0, 0, 0)
@@ -59,6 +70,21 @@ export default function HostDashboard() {
             const bookings = bookingsData ?? []
             setBookingsCount(bookings.length)
             setRevenue(bookings.reduce((sum, b) => sum + Number(b.total_price), 0))
+
+            const { data: hostBookingsData } = await supabase
+                .from('bookings')
+                .select('*')
+                .in('host_id', spaceIds)
+                .order('created_at', { ascending: false })
+
+            setRecentBookings(
+                ((hostBookingsData ?? []) as Booking[]).map((booking) => ({
+                    ...booking,
+                    hostName: hostMap.get(booking.host_id) ?? 'Place inconnue',
+                }))
+            )
+        } else {
+            setRecentBookings([])
         }
 
         setLoading(false)
@@ -89,6 +115,63 @@ export default function HostDashboard() {
         setShowForm(false)
         setEditingSpace(null)
         loadData()
+    }
+
+    async function validateBookingByCode(rawCode: string) {
+        const normalizedCode = rawCode.trim().toUpperCase()
+        if (!normalizedCode) return
+
+        setValidating(true)
+        setValidationError(null)
+        setValidationSuccess(null)
+
+        const targetBooking = recentBookings.find((booking) => getBookingPickupCode(booking.id) === normalizedCode)
+
+        if (!targetBooking) {
+            setValidationError('Aucune réservation ne correspond à ce code dans vos places.')
+            setValidating(false)
+            return
+        }
+
+        if (targetBooking.status === 'cancelled') {
+            setValidationError('Cette réservation est annulée.')
+            setValidating(false)
+            return
+        }
+
+        if (targetBooking.status === 'completed') {
+            setValidationError('Cette réservation est déjà terminée.')
+            setValidating(false)
+            return
+        }
+
+        if (targetBooking.status === 'active') {
+            setValidationSuccess(`Réservation déjà validée pour ${targetBooking.hostName}.`)
+            setValidating(false)
+            return
+        }
+
+        const { error } = await supabase
+            .from('bookings')
+            .update({ status: 'active' })
+            .eq('id', targetBooking.id)
+
+        if (error) {
+            setValidationError(error.message)
+            setValidating(false)
+            return
+        }
+
+        setRecentBookings((prev) =>
+            prev.map((booking) =>
+                booking.id === targetBooking.id
+                    ? { ...booking, status: 'active' }
+                    : booking
+            )
+        )
+        setValidationCode('')
+        setValidationSuccess(`Dépôt validé pour ${targetBooking.hostName}.`)
+        setValidating(false)
     }
 
     if (showForm || editingSpace) {
@@ -180,6 +263,62 @@ export default function HostDashboard() {
                                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>{revenue.toFixed(0)}€</div>
                                 <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: 2 }}>Revenus</div>
                             </div>
+                        </div>
+
+                        <div className="glass-card" style={{ padding: '18px 16px', marginBottom: 24 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                <ShieldCheck size={18} color="var(--color-accent)" />
+                                <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Validation dépôt</h2>
+                            </div>
+                            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.84rem', lineHeight: 1.5, marginBottom: 14 }}>
+                                Saisis ou scanne le code présenté par le client pour confirmer que l’objet a bien été pris en charge.
+                            </p>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <input
+                                    type="text"
+                                    value={validationCode}
+                                    onChange={(e) => setValidationCode(e.target.value.toUpperCase())}
+                                    placeholder="Ex : A1B2C3D4"
+                                    style={{
+                                        flex: '1 1 220px',
+                                        padding: '12px 14px',
+                                        background: 'rgba(255,255,255,0.06)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: 'white',
+                                        fontSize: '0.95rem',
+                                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                                        letterSpacing: '0.12em',
+                                    }}
+                                />
+                                <button
+                                    className="btn-primary"
+                                    type="button"
+                                    onClick={() => validateBookingByCode(validationCode)}
+                                    disabled={!validationCode.trim() || validating}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 8,
+                                        opacity: !validationCode.trim() || validating ? 0.6 : 1,
+                                        cursor: !validationCode.trim() || validating ? 'not-allowed' : 'pointer',
+                                    }}
+                                >
+                                    {validating ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle2 size={16} />}
+                                    Valider
+                                </button>
+                            </div>
+                            {validationError && (
+                                <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,107,107,0.15)', color: 'var(--color-danger)', fontSize: '0.84rem' }}>
+                                    {validationError}
+                                </div>
+                            )}
+                            {validationSuccess && (
+                                <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(0,184,148,0.15)', color: 'var(--color-success)', fontSize: '0.84rem' }}>
+                                    {validationSuccess}
+                                </div>
+                            )}
                         </div>
 
                         {/* Section title */}
@@ -302,6 +441,67 @@ export default function HostDashboard() {
                                 )
                             })}
                         </div>
+
+                        {recentBookings.length > 0 && (
+                            <div style={{ marginTop: 24 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                                    <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Réservations récentes</h2>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {recentBookings.slice(0, 8).map((booking) => {
+                                        const code = getBookingPickupCode(booking.id)
+                                        return (
+                                            <div key={booking.id} className="glass-card" style={{ padding: '14px 16px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, marginBottom: 4 }}>{booking.hostName}</div>
+                                                        <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
+                                                            {new Date(booking.start_time).toLocaleString('fr-FR')}
+                                                        </div>
+                                                    </div>
+                                                    <span
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            borderRadius: 6,
+                                                            background: booking.status === 'active' ? 'rgba(0,184,148,0.15)' : 'rgba(253,203,110,0.15)',
+                                                            color: booking.status === 'active' ? 'var(--color-success)' : 'var(--color-warning)',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 700,
+                                                            textTransform: 'uppercase',
+                                                        }}
+                                                    >
+                                                        {booking.status === 'active' ? 'Déposé' : booking.status ?? 'pending'}
+                                                    </span>
+                                                </div>
+                                                <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                                    <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', letterSpacing: '0.16em', fontWeight: 800 }}>
+                                                        {code}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => validateBookingByCode(code)}
+                                                        disabled={booking.status === 'active' || validating}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            border: '1px solid rgba(0,184,148,0.2)',
+                                                            background: booking.status === 'active' ? 'rgba(255,255,255,0.05)' : 'rgba(0,184,148,0.12)',
+                                                            color: booking.status === 'active' ? 'var(--color-text-muted)' : 'var(--color-success)',
+                                                            cursor: booking.status === 'active' || validating ? 'default' : 'pointer',
+                                                            fontSize: '0.78rem',
+                                                            fontWeight: 700,
+                                                            opacity: booking.status === 'active' || validating ? 0.6 : 1,
+                                                        }}
+                                                    >
+                                                        {booking.status === 'active' ? 'Déjà validée' : 'Valider ce code'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
             </div>
