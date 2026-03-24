@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 
 interface RoleSelectModalProps {
     userId: string
-    onComplete: () => void
+    onComplete: () => Promise<void> | void
 }
 
 export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalProps) {
@@ -18,37 +18,50 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
         setSaving(true)
         setError(null)
 
-        const metadata: Record<string, string> = { role: selectedRole }
-        if (selectedRole === 'host' && companyName.trim()) {
-            metadata.company_name = companyName.trim()
-        }
+        try {
+            const metadata: Record<string, string> = { role: selectedRole }
+            if (selectedRole === 'host' && companyName.trim()) {
+                metadata.company_name = companyName.trim()
+            }
 
-        const { error: updateAuthErr } = await supabase.auth.updateUser({
-            data: metadata,
-        })
+            const { data: authUserData, error: getUserErr } = await supabase.auth.getUser()
+            if (getUserErr) throw getUserErr
 
-        if (updateAuthErr) {
-            setError(updateAuthErr.message)
-            setSaving(false)
-            return
-        }
+            const authUser = authUserData.user
+            if (!authUser) {
+                throw new Error('Session utilisateur introuvable. Reconnecte-toi puis réessaie.')
+            }
 
-        const { error: updateProfileErr } = await supabase
-            .from('profiles')
-            .update({
-                role: selectedRole,
-                company_name: selectedRole === 'host' ? (companyName.trim() || null) : null,
+            const { error: updateAuthErr } = await supabase.auth.updateUser({
+                data: metadata,
             })
-            .eq('id', userId)
+            if (updateAuthErr) throw updateAuthErr
 
-        if (updateProfileErr) {
-            setError(updateProfileErr.message)
+            const fallbackName =
+                authUser.user_metadata?.nom ??
+                authUser.user_metadata?.full_name ??
+                authUser.user_metadata?.name ??
+                authUser.email?.split('@')[0] ??
+                'Utilisateur'
+
+            const { error: updateProfileErr } = await supabase
+                .from('profiles')
+                .upsert({
+                    id: userId,
+                    email: authUser.email ?? '',
+                    nom: String(fallbackName),
+                    role: selectedRole,
+                    company_name: selectedRole === 'host' ? (companyName.trim() || null) : null,
+                }, { onConflict: 'id' })
+
+            if (updateProfileErr) throw updateProfileErr
+
+            await onComplete()
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Impossible d’enregistrer votre rôle.')
+        } finally {
             setSaving(false)
-            return
         }
-
-        setSaving(false)
-        onComplete()
     }
 
     const inputStyle: React.CSSProperties = {
