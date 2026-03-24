@@ -6,6 +6,12 @@ interface GeocodingResult {
     display_name: string
 }
 
+interface NominatimResult {
+    lat: string
+    lon: string
+    display_name: string
+}
+
 interface UseGeocodingReturn {
     suggestions: GeocodingResult[]
     loading: boolean
@@ -40,8 +46,16 @@ export function useGeocoding(): UseGeocodingReturn {
                     `https://nominatim.openstreetmap.org/search?${params}`,
                     { headers: { 'Accept-Language': 'fr' } }
                 )
-                const data: GeocodingResult[] = await res.json()
-                setSuggestions(data)
+                const data: NominatimResult[] = await res.json()
+                const normalizedResults = data
+                    .map((item) => ({
+                        lat: Number(item.lat),
+                        lon: Number(item.lon),
+                        display_name: item.display_name,
+                    }))
+                    .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon))
+
+                setSuggestions(normalizedResults)
             } catch {
                 setSuggestions([])
             } finally {

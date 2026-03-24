@@ -213,7 +213,7 @@ export default function HostSpaceForm({ space, onSaved, onCancel }: HostSpaceFor
                     )}
                     {coordsSet && (
                         <p style={{ fontSize: '0.72rem', color: 'var(--color-success)', marginTop: 4 }}>
-                            ✓ Coordonnées : {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                            ✓ Coordonnées : {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
                         </p>
                     )}
                 </div>
