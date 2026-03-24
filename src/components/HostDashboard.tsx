@@ -28,6 +28,22 @@ type Host = Tables<'hosts'>
 type Booking = Tables<'bookings'>
 type HostBooking = Booking & { hostName: string }
 
+function formatBookingSchedule(start: string, end: string) {
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+
+    return `${startDate.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'short',
+    })} · ${startDate.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+    })} → ${endDate.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+    })}`
+}
+
 export default function HostDashboard() {
     const navigate = useNavigate()
     const { user, profile } = useHostProfile()
@@ -158,7 +174,7 @@ export default function HostDashboard() {
         await loadData()
         setValidationCode('')
         const hostName = spaces.find((space) => space.id === validatedBooking.host_id)?.name ?? 'votre place'
-        setValidationSuccess(`Dépôt validé pour ${hostName}.`)
+        setValidationSuccess(`Dépôt validé pour ${hostName} · ${formatBookingSchedule(validatedBooking.start_time, validatedBooking.end_time)}.`)
         setValidating(false)
     }
 
@@ -482,7 +498,7 @@ export default function HostDashboard() {
                                                     <div>
                                                         <div style={{ fontWeight: 700, marginBottom: 4 }}>{booking.hostName}</div>
                                                         <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
-                                                            {new Date(booking.start_time).toLocaleString('fr-FR')}
+                                                            {formatBookingSchedule(booking.start_time, booking.end_time)}
                                                         </div>
                                                     </div>
                                                     <span

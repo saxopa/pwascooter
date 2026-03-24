@@ -35,7 +35,6 @@ import RoleSelectModal from './RoleSelectModal'
 import { useHostProfile } from '../hooks/useHostProfile'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
-import LegalLinks from './LegalLinks'
 
 type Host = Tables<'hosts'>
 
@@ -564,6 +563,7 @@ export default function MapView() {
     }
 
     const visibleCount = filteredHosts.length
+    const showBottomDock = !selectedHost
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', flex: 1 }}>
@@ -630,99 +630,17 @@ export default function MapView() {
                 ))}
             </MapContainer>
 
-            {/* Map Filters */}
+            {/* Top Bar */}
             <div
                 style={{
                     position: 'absolute',
-                    top: 'max(92px, calc(env(safe-area-inset-top) + 72px))',
-                    left: 14,
-                    right: 14,
+                    top: 0,
+                    left: 0,
+                    right: 0,
                     zIndex: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                    pointerEvents: 'none',
-                }}
-            >
-                <div
-                    className="glass-card"
-                    style={{
-                        padding: '8px 10px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 7,
-                        color: 'var(--color-text-secondary)',
-                        background: 'rgba(15,15,26,0.82)',
-                        pointerEvents: 'auto',
-                    }}
-                >
-                    <SlidersHorizontal size={15} color="var(--color-primary-light)" />
-                    <span style={{ fontSize: '0.76rem', fontWeight: 700 }}>{visibleCount} offre{visibleCount > 1 ? 's' : ''}</span>
-                </div>
-                <button
-                    onClick={() => setFilterCharging(f => !f)}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        padding: '10px 14px',
-                        background: filterCharging ? 'rgba(0,206,201,0.25)' : 'rgba(26,26,46,0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: filterCharging ? '1px solid rgba(0,206,201,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 'var(--radius-md)',
-                        color: filterCharging ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
-                        transition: 'all 0.2s',
-                        pointerEvents: 'auto',
-                    }}
-                >
-                    ⚡ Recharge
-                </button>
-                <button
-                    onClick={() => setFilterCheap(f => !f)}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        padding: '10px 14px',
-                        background: filterCheap ? 'rgba(253,203,110,0.2)' : 'rgba(26,26,46,0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: filterCheap ? '1px solid rgba(253,203,110,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 'var(--radius-md)',
-                        color: filterCheap ? 'var(--color-warning)' : 'var(--color-text-secondary)',
-                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
-                        transition: 'all 0.2s',
-                        pointerEvents: 'auto',
-                    }}
-                >
-                    💰 Moins de 2€/h
-                </button>
-                <button
-                    onClick={() => setLocateRequest((request) => request + 1)}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        padding: '10px 14px',
-                        background: 'rgba(26,26,46,0.85)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'var(--color-text-primary)',
-                        cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
-                        transition: 'all 0.2s',
-                        pointerEvents: 'auto',
-                    }}
-                >
-                    <Crosshair size={15} color="var(--color-accent)" />
-                    Me localiser
-                </button>
-            </div>
-
-            {/* Header overlay */}
-            <div
-                style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 500,
-                    padding: '16px 14px 0', paddingTop: 'max(16px, env(safe-area-inset-top))',
-                    background: 'linear-gradient(to bottom, rgba(15,15,26,0.9), transparent)',
+                    padding: '14px 14px 0',
+                    paddingTop: 'max(14px, env(safe-area-inset-top))',
+                    background: 'linear-gradient(to bottom, rgba(15,15,26,0.82), rgba(15,15,26,0))',
                     display: 'grid',
                     gap: 10,
                 }}
@@ -738,29 +656,43 @@ export default function MapView() {
                     <div
                         className="glass-card"
                         style={{
-                            padding: '12px 14px',
+                            padding: '10px 12px',
                             background: 'rgba(15,15,26,0.74)',
-                            maxWidth: 'min(70vw, 360px)',
-                            pointerEvents: 'auto',
+                            maxWidth: 'min(64vw, 320px)',
                         }}
                     >
-                        <h1 className="text-gradient" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                        <h1 className="text-gradient" style={{ fontSize: '1.08rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
                             ScootSafe
                         </h1>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.45 }}>
-                            Réserve un point sécurisé ou retrouve un commerçant de proximité.
+                        <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 3, lineHeight: 1.35 }}>
+                            Stationnement et dépôt local.
                         </p>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, pointerEvents: 'auto' }}>
-                        <div className="glass-card" style={{ padding: '8px 12px', background: 'rgba(26,26,46,0.72)' }}>
-                            <LegalLinks compact align="right" />
-                        </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                        <button
+                            onClick={() => navigate('/cgu')}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '8px 11px',
+                                borderRadius: '999px',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                background: 'rgba(26,26,46,0.72)',
+                                color: 'var(--color-text-secondary)',
+                                fontSize: '0.76rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            CGU
+                        </button>
                         {user ? (
                             <button
                                 onClick={handleSignOut}
                                 style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    padding: '8px 12px',
+                                    padding: '8px 11px',
                                     background: 'rgba(255,107,107,0.12)',
                                     border: '1px solid rgba(255,107,107,0.2)',
                                     borderRadius: '999px',
@@ -776,7 +708,7 @@ export default function MapView() {
                                 onClick={() => setShowAuthModal(true)}
                                 style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    padding: '8px 12px',
+                                    padding: '8px 11px',
                                     background: 'rgba(108,92,231,0.18)',
                                     border: '1px solid rgba(108,92,231,0.3)',
                                     borderRadius: '999px',
@@ -793,9 +725,101 @@ export default function MapView() {
 
                 <div
                     style={{
+                        display: 'flex',
+                        gap: 8,
+                        overflowX: 'auto',
+                        paddingBottom: 2,
+                        scrollbarWidth: 'none',
+                    }}
+                >
+                    <button
+                        onClick={() => setFilterCharging(f => !f)}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 7,
+                            padding: '9px 12px',
+                            background: filterCharging ? 'rgba(0,206,201,0.18)' : 'rgba(15,15,26,0.72)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            border: filterCharging ? '1px solid rgba(0,206,201,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '999px',
+                            color: filterCharging ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        ⚡ Recharge
+                    </button>
+                    <button
+                        onClick={() => setFilterCheap(f => !f)}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 7,
+                            padding: '9px 12px',
+                            background: filterCheap ? 'rgba(253,203,110,0.18)' : 'rgba(15,15,26,0.72)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            border: filterCheap ? '1px solid rgba(253,203,110,0.28)' : '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '999px',
+                            color: filterCheap ? 'var(--color-warning)' : 'var(--color-text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        💰 Moins de 2€/h
+                    </button>
+                    <button
+                        onClick={() => setLocateRequest((request) => request + 1)}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 7,
+                            padding: '9px 12px',
+                            background: 'rgba(15,15,26,0.72)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '999px',
+                            color: 'var(--color-text-primary)',
+                            cursor: 'pointer',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <Crosshair size={14} color="var(--color-accent)" />
+                        Me localiser
+                    </button>
+                    <div
+                        className="glass-card"
+                        style={{
+                            padding: '9px 12px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            color: 'var(--color-text-muted)',
+                            background: 'rgba(15,15,26,0.72)',
+                            borderRadius: '999px',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <SlidersHorizontal size={14} color="var(--color-primary-light)" />
+                        <span style={{ fontSize: '0.76rem', fontWeight: 700 }}>{visibleCount} offre{visibleCount > 1 ? 's' : ''}</span>
+                    </div>
+                </div>
+            </div>
+
+            {showBottomDock && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: 14,
+                        right: 14,
+                        bottom: 'max(20px, calc(env(safe-area-inset-bottom) + 24px))',
+                        zIndex: 500,
                         display: 'grid',
                         gridTemplateColumns: isHost ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
-                        gap: 8,
+                        gap: 10,
                         pointerEvents: 'auto',
                     }}
                 >
@@ -803,21 +827,21 @@ export default function MapView() {
                         onClick={() => navigate('/bookings')}
                         aria-label="Mes Réservations"
                         style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                            padding: '12px 14px',
-                            background: 'rgba(15,15,26,0.82)',
-                            backdropFilter: 'blur(12px)',
-                            WebkitBackdropFilter: 'blur(12px)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                            padding: '14px 16px',
+                            background: 'rgba(11,12,20,0.88)',
+                            backdropFilter: 'blur(14px)',
+                            WebkitBackdropFilter: 'blur(14px)',
                             border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '16px',
+                            borderRadius: '18px',
                             color: 'var(--color-text-primary)',
                             cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: 700,
-                            width: '100%',
+                            fontSize: '0.9rem',
+                            fontWeight: 800,
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.28)',
                         }}
                     >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                             <CalendarDays size={16} color="var(--color-primary-light)" />
                             Réservations
                         </span>
@@ -827,29 +851,29 @@ export default function MapView() {
                         <button
                             onClick={() => navigate('/host/dashboard')}
                             style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                                padding: '12px 14px',
-                                background: 'linear-gradient(135deg, rgba(108,92,231,0.26), rgba(0,206,201,0.14))',
-                                backdropFilter: 'blur(12px)',
-                                WebkitBackdropFilter: 'blur(12px)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                                padding: '14px 16px',
+                                background: 'linear-gradient(135deg, rgba(108,92,231,0.3), rgba(0,206,201,0.18))',
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
                                 border: '1px solid rgba(108,92,231,0.3)',
-                                borderRadius: '16px',
-                                color: 'var(--color-primary-light)',
+                                borderRadius: '18px',
+                                color: 'var(--color-text-primary)',
                                 cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: 700,
-                                width: '100%',
+                                fontSize: '0.9rem',
+                                fontWeight: 800,
+                                boxShadow: '0 10px 30px rgba(0,0,0,0.28)',
                             }}
                         >
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                                <Shield size={16} />
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                                <Shield size={16} color="var(--color-accent)" />
                                 Espace Pro
                             </span>
                             <ChevronRight size={16} color="var(--color-text-primary)" />
                         </button>
                     )}
                 </div>
-            </div>
+            )}
 
             {/* Bottom Sheet */}
             {selectedHost && (
