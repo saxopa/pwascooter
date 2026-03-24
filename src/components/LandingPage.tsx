@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Building2, CalendarDays, MapPin, ShieldCheck, Zap } from 'lucide-react'
+import { ArrowRight, Building2, CalendarDays, MapPin, Scale, ShieldCheck, Sparkles, Store, Zap } from 'lucide-react'
 import AuthModal from './AuthModal'
 import { supabase } from '../lib/supabaseClient'
+import LegalLinks from './LegalLinks'
 
 const featureCardStyle: React.CSSProperties = {
     padding: '18px 16px',
@@ -68,7 +69,7 @@ export default function LandingPage() {
         <div
             style={{
                 minHeight: '100dvh',
-                background: 'radial-gradient(circle at top, rgba(108,92,231,0.35), transparent 34%), linear-gradient(180deg, #141427 0%, #0f0f1a 48%, #0b0b14 100%)',
+                background: 'radial-gradient(circle at top left, rgba(0,206,201,0.2), transparent 28%), radial-gradient(circle at top right, rgba(108,92,231,0.3), transparent 34%), linear-gradient(180deg, #11121d 0%, #0d0e17 42%, #090a11 100%)',
                 position: 'relative',
                 overflow: 'hidden',
             }}
@@ -108,24 +109,40 @@ export default function LandingPage() {
                             ScootSafe
                         </div>
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginTop: 4 }}>
-                            Parking scooterise, réservation instantanée, espace commerçant.
+                            Plateforme de mise en relation pour stationnement et prise en charge locale.
                         </p>
                     </div>
 
-                    <button
-                        className="glass-card"
-                        onClick={() => setShowAuthModal(true)}
-                        style={{
-                            padding: '10px 16px',
-                            background: 'rgba(26,26,46,0.72)',
-                            color: 'var(--color-text-primary)',
-                            borderRadius: '999px',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                        }}
-                    >
-                        Connexion
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button
+                            className="glass-card"
+                            onClick={() => navigate('/cgu')}
+                            style={{
+                                padding: '10px 16px',
+                                background: 'rgba(26,26,46,0.58)',
+                                color: 'var(--color-text-secondary)',
+                                borderRadius: '999px',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                            }}
+                        >
+                            CGU
+                        </button>
+                        <button
+                            className="glass-card"
+                            onClick={() => setShowAuthModal(true)}
+                            style={{
+                                padding: '10px 16px',
+                                background: 'rgba(26,26,46,0.72)',
+                                color: 'var(--color-text-primary)',
+                                borderRadius: '999px',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                            }}
+                        >
+                            Connexion
+                        </button>
+                    </div>
                 </header>
 
                 <section
@@ -153,18 +170,18 @@ export default function LandingPage() {
                             }}
                         >
                             <ShieldCheck size={16} />
-                            MVP mobile prêt a tester
+                            Service local, réservation rapide, responsabilité métier portée par l’offreur
                         </div>
 
                         <div>
                             <h1 style={{ fontSize: 'clamp(2.6rem, 7vw, 4.8rem)', lineHeight: 0.95, letterSpacing: '-0.06em', fontWeight: 900 }}>
-                                Garez les trottinettes
+                                Réservez une solution
                                 <span className="text-gradient" style={{ display: 'block' }}>
-                                    sans friction.
+                                    simple pour votre trottinette.
                                 </span>
                             </h1>
                             <p style={{ marginTop: 16, color: 'var(--color-text-secondary)', fontSize: '1rem', maxWidth: 540, lineHeight: 1.6 }}>
-                                Une carte temps reel pour reserver une place securisee en quelques secondes, avec un espace commerçant pour publier et gerer ses emplacements.
+                                ScootSafe aide un utilisateur à trouver un commerçant de proximité proposant un emplacement ou une prise en charge. La plateforme référence les offres, gère la réservation et le code de validation, tandis que la prestation sur le terrain reste assurée par le commerçant.
                             </p>
                         </div>
 
@@ -194,13 +211,13 @@ export default function LandingPage() {
 
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                             <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                                OAuth Google + email
+                                Connexion email + Google
                             </span>
                             <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                                Role utilisateur ou commerçant
+                                Utilisateur ou commerçant
                             </span>
                             <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                                Reservation anti-surbooking
+                                Réservation et validation par code
                             </span>
                         </div>
 
@@ -224,38 +241,66 @@ export default function LandingPage() {
                         className="glass-card"
                         style={{
                             padding: 22,
-                            background: 'linear-gradient(180deg, rgba(26,26,46,0.82), rgba(14,14,26,0.92))',
+                            background: 'linear-gradient(180deg, rgba(20,22,34,0.92), rgba(10,12,20,0.96))',
                             display: 'grid',
                             gap: 14,
                         }}
                     >
+                        <div
+                            style={{
+                                padding: '16px 18px',
+                                borderRadius: 'var(--radius-lg)',
+                                background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                                <Sparkles size={18} color="var(--color-accent)" />
+                                <strong style={{ fontSize: '1rem' }}>Le principe du service</strong>
+                            </div>
+                            <div style={{ display: 'grid', gap: 12 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 10, alignItems: 'start' }}>
+                                    <span style={{ color: 'var(--color-accent)', fontWeight: 900 }}>1</span>
+                                    <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>Le commerçant publie une offre avec ses conditions, son prix et sa disponibilité.</p>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 10, alignItems: 'start' }}>
+                                    <span style={{ color: 'var(--color-accent)', fontWeight: 900 }}>2</span>
+                                    <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>L’utilisateur réserve via la carte, reçoit un code, puis se présente chez l’offreur.</p>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 10, alignItems: 'start' }}>
+                                    <span style={{ color: 'var(--color-accent)', fontWeight: 900 }}>3</span>
+                                    <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>Le commerçant valide la prise en charge. ScootSafe reste une couche d’intermédiation, pas l’exécutant de la prestation.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
                             <div className="glass-card" style={featureCardStyle}>
                                 <MapPin size={20} color="var(--color-primary-light)" />
-                                <strong>Carte claire</strong>
+                                <strong>Découvrir</strong>
                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                                    Recherche visuelle et filtres rapides pour trouver une place proche.
+                                    Carte géolocalisée et filtres rapides pour repérer une offre active.
                                 </span>
                             </div>
                             <div className="glass-card" style={featureCardStyle}>
-                                <Zap size={20} color="var(--color-accent)" />
-                                <strong>Recharge</strong>
+                                <Store size={20} color="var(--color-accent)" />
+                                <strong>Publier</strong>
                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                                    Mise en avant immediate des emplacements avec borne.
+                                    Le commerçant décrit sa place, son prix, sa capacité et ses options.
                                 </span>
                             </div>
                             <div className="glass-card" style={featureCardStyle}>
                                 <CalendarDays size={20} color="var(--color-warning)" />
-                                <strong>Reservation</strong>
+                                <strong>Réserver</strong>
                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                                    Duree, total dynamique et suivi des reservations.
+                                    Durée, total, anti-surbooking et preuve de réservation côté utilisateur.
                                 </span>
                             </div>
                             <div className="glass-card" style={featureCardStyle}>
                                 <Building2 size={20} color="var(--color-primary-light)" />
-                                <strong>Espace pro</strong>
+                                <strong>Valider</strong>
                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                                    Publication des places et gestion des disponibilites commerçants.
+                                    Code de dépôt, validation commerçant et tableau de bord d’exploitation.
                                 </span>
                             </div>
                         </div>
@@ -269,17 +314,66 @@ export default function LandingPage() {
                             }}
                         >
                             <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)' }}>
-                                Flux principal
+                                Positionnement plateforme
                             </div>
                             <div style={{ marginTop: 10, fontWeight: 700, fontSize: '1.1rem' }}>
-                                Landing → Auth → Choix du role → Carte → Reservation
+                                ScootSafe organise la mise en relation, pas la garde du bien
                             </div>
                             <p style={{ marginTop: 8, color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
-                                Le premier retour OAuth renvoie directement sur la carte et force la selection du role si le profil n’est pas encore initialise.
+                                Les CGU précisent que la prestation de stationnement, de dépôt, de surveillance ou de restitution est exécutée par le commerçant référencé, sous sa seule responsabilité, dans les limites permises par la loi.
                             </p>
                         </div>
                     </div>
                 </section>
+
+                <section
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                        gap: 16,
+                    }}
+                >
+                    <div className="glass-card" style={{ padding: '18px 18px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <Scale size={18} color="var(--color-warning)" />
+                            <strong>Cadre contractuel</strong>
+                        </div>
+                        <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6, fontSize: '0.92rem' }}>
+                            Contrat de plateforme distinct du contrat éventuel conclu entre l’utilisateur et le commerçant. ScootSafe fournit une interface, un référencement et des traces techniques.
+                        </p>
+                    </div>
+                    <div className="glass-card" style={{ padding: '18px 18px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <ShieldCheck size={18} color="var(--color-accent)" />
+                            <strong>Responsabilités réparties</strong>
+                        </div>
+                        <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6, fontSize: '0.92rem' }}>
+                            L’offreur est responsable de son annonce, de sa disponibilité, de ses assurances et de l’exécution matérielle de la prestation. L’utilisateur reste responsable des informations et consignes qu’il respecte.
+                        </p>
+                    </div>
+                    <div className="glass-card" style={{ padding: '18px 18px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <Zap size={18} color="var(--color-primary-light)" />
+                            <strong>Information claire</strong>
+                        </div>
+                        <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6, fontSize: '0.92rem' }}>
+                            Les CGU exposent le service, la nature des contrats, les paramètres de visibilité des offres et les modalités de règlement des litiges.
+                        </p>
+                    </div>
+                </section>
+
+                <footer
+                    style={{
+                        display: 'grid',
+                        gap: 12,
+                        padding: '6px 0 2px',
+                    }}
+                >
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', lineHeight: 1.6, maxWidth: 760 }}>
+                        ScootSafe est présenté comme une plateforme de mise en relation. Les présentes informations ne remplacent pas une revue finale par un avocat avant mise en production commerciale, notamment pour compléter les mentions légales, la politique de confidentialité, la médiation et les informations société.
+                    </div>
+                    <LegalLinks align="left" />
+                </footer>
             </div>
 
             {showAuthModal && (

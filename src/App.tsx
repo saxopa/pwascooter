@@ -6,11 +6,13 @@ import MapView from './components/MapView'
 import BookingsList from './components/BookingsList'
 import HostDashboard from './components/HostDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
+import TermsPage from './components/TermsPage'
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/cgu" element={<TermsPage />} />
       <Route path="/map" element={<MapView />} />
       <Route path="/bookings" element={<BookingsList />} />
       <Route

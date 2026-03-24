@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
+import LegalLinks from './LegalLinks'
 
 type Booking = Tables<'bookings'> & {
     hosts: Pick<Tables<'hosts'>, 'name' | 'latitude' | 'longitude'> | null
@@ -156,6 +157,9 @@ export default function BookingsList() {
                     <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 1 }}>
                         ⚡ ScootSafe
                     </p>
+                    <div style={{ marginTop: 6 }}>
+                        <LegalLinks compact align="left" />
+                    </div>
                 </div>
             </div>
 

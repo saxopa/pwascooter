@@ -32,6 +32,7 @@ import RoleSelectModal from './RoleSelectModal'
 import { useHostProfile } from '../hooks/useHostProfile'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
+import LegalLinks from './LegalLinks'
 
 type Host = Tables<'hosts'>
 
@@ -628,6 +629,9 @@ export default function MapView() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, pointerEvents: 'auto' }}>
+                    <div className="glass-card" style={{ padding: '8px 12px', background: 'rgba(26,26,46,0.72)' }}>
+                        <LegalLinks compact align="right" />
+                    </div>
                     <button
                         onClick={() => navigate('/bookings')}
                         aria-label="Mes Réservations"

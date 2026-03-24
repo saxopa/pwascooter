@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useHostProfile } from '../hooks/useHostProfile'
 import HostSpaceForm from './HostSpaceForm'
 import BarcodeScannerModal from './BarcodeScannerModal'
+import LegalLinks from './LegalLinks'
 import type { Tables } from '../types/supabase'
 import { extractBookingPickupCode, resolveBookingPickupCode } from '../lib/bookingCode'
 
@@ -218,6 +219,9 @@ export default function HostDashboard() {
                     <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 1 }}>
                         {profile?.company_name ?? '⚡ ScootSafe'}
                     </p>
+                    <div style={{ marginTop: 6 }}>
+                        <LegalLinks compact align="left" />
+                    </div>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
