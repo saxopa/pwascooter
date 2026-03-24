@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Routes, Route, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
 import LandingPage from './components/LandingPage'
 import MapView from './components/MapView'
@@ -7,45 +7,83 @@ import BookingsList from './components/BookingsList'
 import HostDashboard from './components/HostDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 
-function OAuthRecovery() {
+function AppBootstrap() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    async function recoverOAuthSession() {
+    let isMounted = true
+
+    async function bootstrapSession() {
       const searchParams = new URLSearchParams(window.location.search)
       const authCode = searchParams.get('code')
 
       if (authCode) {
         const { error } = await supabase.auth.exchangeCodeForSession(authCode)
-        if (!error) {
+        if (!error && isMounted) {
           navigate('/map', { replace: true })
         }
-        return
+      } else {
+        const hash = window.location.hash
+        const tokenFragmentIndex = hash.indexOf('#access_token=')
+
+        if (tokenFragmentIndex !== -1) {
+          const tokenFragment = hash.slice(tokenFragmentIndex + 1)
+          const tokenParams = new URLSearchParams(tokenFragment)
+          const accessToken = tokenParams.get('access_token')
+          const refreshToken = tokenParams.get('refresh_token')
+
+          if (accessToken && refreshToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+
+            if (!error && isMounted) {
+              navigate('/map', { replace: true })
+            }
+          }
+        }
       }
 
-      const hash = window.location.hash
-      const tokenFragmentIndex = hash.indexOf('#access_token=')
-      if (tokenFragmentIndex === -1) return
+      const { data } = await supabase.auth.getSession()
+      const hasSession = !!data.session?.user
 
-      const tokenFragment = hash.slice(tokenFragmentIndex + 1)
-      const tokenParams = new URLSearchParams(tokenFragment)
-      const accessToken = tokenParams.get('access_token')
-      const refreshToken = tokenParams.get('refresh_token')
-
-      if (!accessToken || !refreshToken) return
-
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      })
-
-      if (!error) {
+      if (hasSession && location.pathname === '/') {
         navigate('/map', { replace: true })
+      }
+
+      if (isMounted) {
+        setReady(true)
       }
     }
 
-    void recoverOAuthSession()
-  }, [navigate])
+    void bootstrapSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [location.pathname, navigate])
+
+  if (!ready) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          minHeight: '100dvh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--color-bg-dark)',
+          color: 'var(--color-text-secondary)',
+          fontWeight: 600,
+        }}
+      >
+        Chargement…
+      </div>
+    )
+  }
 
   return null
 }
@@ -53,7 +91,7 @@ function OAuthRecovery() {
 function App() {
   return (
     <div style={{ width: '100vw', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <OAuthRecovery />
+      <AppBootstrap />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/map" element={<MapView />} />
@@ -66,6 +104,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<Navigate to="/map" replace />} />
       </Routes>
     </div>
   )
