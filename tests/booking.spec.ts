@@ -1,10 +1,13 @@
 import { test, expect, type Page } from '@playwright/test'
+import { createClient } from '@supabase/supabase-js'
 import {
   gotoRoute,
   login,
   logout,
   selectDuration,
 } from './utils/test-helpers'
+
+const E2E_ANTI_SURBOOKING_HOST_ID = '11111111-1111-4111-8111-111111111111'
 
 async function openFirstMarker(page: Page) {
   const marker = page.locator('.leaflet-marker-icon').first()
@@ -197,11 +200,70 @@ test.describe('Page Mes Réservations', () => {
 })
 
 test.describe('Anti-surbooking', () => {
-  test.skip('Capacity=1 bloque la 2ème réservation (requires 2 test accounts)', async () => {
-    // This test requires:
-    // 1. A host with a capacity=1 space
-    // 2. Two different test user accounts (TEST_USER_EMAIL + TEST_USER2_EMAIL)
-    // 3. Sequential booking on the same spot
-    // Cannot be reliably automated without proper test fixtures
+  test('Capacity=1 bloque la 2ème réservation', async () => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
+    const user1Email = process.env.TEST_USER_EMAIL
+    const user1Password = process.env.TEST_USER_PASSWORD
+    const user2Email = process.env.TEST_USER2_EMAIL
+    const user2Password = process.env.TEST_USER2_PASSWORD
+
+    if (!supabaseUrl || !supabaseAnonKey || !user1Email || !user1Password || !user2Email || !user2Password) {
+      test.skip()
+      return
+    }
+
+    const client1 = createClient(supabaseUrl, supabaseAnonKey)
+    const client2 = createClient(supabaseUrl, supabaseAnonKey)
+
+    const start = new Date(Date.now() + 48 * 60 * 60 * 1000)
+    const end = new Date(start.getTime() + 60 * 60 * 1000)
+
+    const cleanupBookingIds: string[] = []
+
+    try {
+      const [{ data: loginData1, error: loginError1 }, { data: loginData2, error: loginError2 }] = await Promise.all([
+        client1.auth.signInWithPassword({ email: user1Email, password: user1Password }),
+        client2.auth.signInWithPassword({ email: user2Email, password: user2Password }),
+      ])
+
+      expect(loginError1?.message ?? null).toBeNull()
+      expect(loginError2?.message ?? null).toBeNull()
+      expect(loginData1.user?.id).toBeTruthy()
+      expect(loginData2.user?.id).toBeTruthy()
+
+      const { data: booking1, error: bookingError1 } = await client1.rpc('book_parking_spot', {
+        p_host_id: E2E_ANTI_SURBOOKING_HOST_ID,
+        p_user_id: loginData1.user!.id,
+        p_start_time: start.toISOString(),
+        p_end_time: end.toISOString(),
+        p_total_price: 1.5,
+      })
+
+      expect(bookingError1?.message ?? null).toBeNull()
+      expect(booking1?.success).toBe(true)
+
+      if (booking1?.booking_id) {
+        cleanupBookingIds.push(booking1.booking_id)
+      }
+
+      const { data: booking2, error: bookingError2 } = await client2.rpc('book_parking_spot', {
+        p_host_id: E2E_ANTI_SURBOOKING_HOST_ID,
+        p_user_id: loginData2.user!.id,
+        p_start_time: start.toISOString(),
+        p_end_time: end.toISOString(),
+        p_total_price: 1.5,
+      })
+
+      expect(bookingError2?.message ?? null).toBeNull()
+      expect(booking2?.success).toBe(false)
+      expect(booking2?.error).toBe('PARKING_FULL')
+    } finally {
+      for (const bookingId of cleanupBookingIds) {
+        await client1.rpc('cancel_booking', { p_booking_id: bookingId })
+      }
+      await client1.auth.signOut()
+      await client2.auth.signOut()
+    }
   })
 })
