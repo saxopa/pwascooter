@@ -146,7 +146,7 @@ function App() {
   }, [])
 
   return (
-    <div style={{ width: '100%', minHeight: 'var(--app-viewport-height)', height: 'var(--app-viewport-height)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', minHeight: 'var(--app-viewport-height)', display: 'flex', flexDirection: 'column' }}>
       <AppBootstrap onReady={handleReady} />
       {!ready ? (
         <AppShellLoader />
