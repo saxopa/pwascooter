@@ -11,8 +11,6 @@ import {
 } from 'react-leaflet'
 import L from 'leaflet'
 import {
-    MapPin,
-    Zap,
     Clock,
     X,
     CreditCard,
@@ -27,7 +25,6 @@ import {
     Shield,
     ChevronRight,
 } from 'lucide-react'
-import ReactDOMServer from 'react-dom/server'
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 import AuthModal from './AuthModal'
@@ -55,29 +52,27 @@ function createMarkerIcon(hasCharging: boolean) {
         return standardMarkerIcon
     }
 
-    const iconHtml = ReactDOMServer.renderToStaticMarkup(
-        <div
-            style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: hasCharging
-                    ? 'linear-gradient(135deg, #6C5CE7, #00CEC9)'
-                    : 'linear-gradient(135deg, #6C5CE7, #A29BFE)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '3px solid rgba(255,255,255,0.9)',
-                boxShadow: '0 4px 15px rgba(108,92,231,0.5)',
-            }}
-        >
-            {hasCharging ? (
-                <Zap size={18} color="white" fill="white" />
-            ) : (
-                <MapPin size={18} color="white" fill="white" />
-            )}
+    const iconSymbol = hasCharging
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L6 13H11L10 22L18 10H13V2Z"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C16 17.8 19 14.4 19 10.5C19 6.36 15.87 3 12 3C8.13 3 5 6.36 5 10.5C5 14.4 8 17.8 12 22Z"/><circle cx="12" cy="10" r="2.6" fill="#6C5CE7"/></svg>'
+
+    const iconHtml = `
+        <div style="
+            width:40px;
+            height:40px;
+            border-radius:50%;
+            background:${hasCharging ? 'linear-gradient(135deg, #6C5CE7, #00CEC9)' : 'linear-gradient(135deg, #6C5CE7, #A29BFE)'};
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            border:3px solid rgba(255,255,255,0.9);
+            box-shadow:0 4px 15px rgba(108,92,231,0.5);
+        ">
+            <span style="display:flex;align-items:center;justify-content:center;">
+                ${iconSymbol}
+            </span>
         </div>
-    )
+    `
 
     const icon = L.divIcon({
         html: iconHtml,
@@ -222,7 +217,6 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             // 3. Appel RPC anti-surbooking
             const { data: rpcData, error: rpcError } = await supabase.rpc('book_parking_spot', {
                 p_host_id: host.id,
-                p_user_id: user.id,
                 p_start_time: startTime.toISOString(),
                 p_end_time: endTime.toISOString(),
                 p_total_price: Number(totalPrice.toFixed(2)),
@@ -586,7 +580,7 @@ export default function MapView() {
     const showBottomDock = !selectedHost
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%', flex: 1 }}>
+        <div style={{ position: 'relative', width: '100%', minHeight: 'var(--app-viewport-height)', height: '100%', flex: 1 }}>
             {/* Loading overlay */}
             {loading && (
                 <div
@@ -612,7 +606,7 @@ export default function MapView() {
             <MapContainer
                 center={TOULOUSE_CENTER}
                 zoom={DEFAULT_ZOOM}
-                style={{ width: '100%', height: '100%', zIndex: 1 }}
+                style={{ width: '100%', minHeight: '100%', height: '100%', zIndex: 1 }}
                 zoomControl={false}
             >
                 <TileLayer

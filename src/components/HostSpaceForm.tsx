@@ -115,7 +115,7 @@ export default function HostSpaceForm({ space, onSaved, onCancel }: HostSpaceFor
     }
 
     return (
-        <div style={{ minHeight: '100dvh', background: 'var(--color-bg-dark)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ minHeight: 'var(--app-viewport-height)', background: 'var(--color-bg-dark)', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
             <div
                 style={{

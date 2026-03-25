@@ -14,7 +14,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         return (
             <div
                 style={{
-                    minHeight: '100dvh',
+                    minHeight: 'var(--app-viewport-height)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

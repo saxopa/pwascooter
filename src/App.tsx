@@ -1,10 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
-import MapView from './components/MapView'
 import ProtectedRoute from './components/ProtectedRoute'
 
 const LandingPage = lazy(() => import('./components/LandingPage'))
+const MapView = lazy(() => import('./components/MapView'))
 const BookingsList = lazy(() => import('./components/BookingsList'))
 const HostDashboard = lazy(() => import('./components/HostDashboard'))
 const TermsPage = lazy(() => import('./components/TermsPage'))
@@ -14,7 +14,7 @@ function AppShellLoader() {
     <div
       style={{
         flex: 1,
-        minHeight: '100dvh',
+        minHeight: 'var(--app-viewport-height)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -124,12 +124,29 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
 
 function App() {
   const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const root = document.documentElement
+    const updateViewportHeight = () => {
+      root.style.setProperty('--app-viewport-height', `${window.innerHeight}px`)
+    }
+
+    updateViewportHeight()
+    window.addEventListener('resize', updateViewportHeight)
+    window.addEventListener('orientationchange', updateViewportHeight)
+
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight)
+      window.removeEventListener('orientationchange', updateViewportHeight)
+    }
+  }, [])
+
   const handleReady = useCallback(() => {
     setReady(true)
   }, [])
 
   return (
-    <div style={{ width: '100vw', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', minHeight: 'var(--app-viewport-height)', height: 'var(--app-viewport-height)', display: 'flex', flexDirection: 'column' }}>
       <AppBootstrap onReady={handleReady} />
       {!ready ? (
         <AppShellLoader />

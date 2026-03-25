@@ -154,7 +154,7 @@ export default function LandingPage() {
   return (
     <div
       style={{
-        minHeight: '100dvh',
+        minHeight: 'var(--app-viewport-height)',
         background:
           'radial-gradient(circle at top left, rgba(0,206,201,0.16), transparent 28%), radial-gradient(circle at top right, rgba(108,92,231,0.22), transparent 34%), linear-gradient(180deg, #11121d 0%, #0d0e17 42%, #090a11 100%)',
         position: 'relative',

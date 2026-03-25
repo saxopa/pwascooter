@@ -190,7 +190,6 @@ export type Database = {
             book_parking_spot: {
                 Args: {
                     p_host_id: string
-                    p_user_id: string
                     p_start_time: string
                     p_end_time: string
                     p_total_price: number

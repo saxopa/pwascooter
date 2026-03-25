@@ -234,7 +234,6 @@ test.describe('Anti-surbooking', () => {
 
       const { data: booking1, error: bookingError1 } = await client1.rpc('book_parking_spot', {
         p_host_id: E2E_ANTI_SURBOOKING_HOST_ID,
-        p_user_id: loginData1.user!.id,
         p_start_time: start.toISOString(),
         p_end_time: end.toISOString(),
         p_total_price: 1.5,
@@ -249,7 +248,6 @@ test.describe('Anti-surbooking', () => {
 
       const { data: booking2, error: bookingError2 } = await client2.rpc('book_parking_spot', {
         p_host_id: E2E_ANTI_SURBOOKING_HOST_ID,
-        p_user_id: loginData2.user!.id,
         p_start_time: start.toISOString(),
         p_end_time: end.toISOString(),
         p_total_price: 1.5,

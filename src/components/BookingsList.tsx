@@ -138,7 +138,7 @@ export default function BookingsList() {
     return (
         <div
             style={{
-                minHeight: '100dvh',
+                minHeight: 'var(--app-viewport-height)',
                 background: 'var(--color-bg-dark)',
                 display: 'flex',
                 flexDirection: 'column',

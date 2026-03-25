@@ -102,7 +102,7 @@ export default function TermsPage() {
   return (
     <div
       style={{
-        minHeight: '100dvh',
+        minHeight: 'var(--app-viewport-height)',
         background: 'linear-gradient(180deg, #10111d 0%, #0a0b12 100%)',
       }}
     >

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     ArrowLeft,
@@ -19,7 +19,6 @@ import {
 import { supabase } from '../lib/supabaseClient'
 import { useHostProfile } from '../hooks/useHostProfile'
 import HostSpaceForm from './HostSpaceForm'
-import BarcodeScannerModal from './BarcodeScannerModal'
 import LegalLinks from './LegalLinks'
 import type { Tables } from '../types/supabase'
 import { extractBookingPickupCode } from '../lib/bookingCode'
@@ -27,6 +26,7 @@ import { extractBookingPickupCode } from '../lib/bookingCode'
 type Host = Tables<'hosts'>
 type Booking = Tables<'bookings'>
 type HostBooking = Booking & { hostName: string }
+const BarcodeScannerModal = lazy(() => import('./BarcodeScannerModal'))
 
 function formatBookingSchedule(start: string, end: string) {
     const startDate = new Date(start)
@@ -227,12 +227,16 @@ export default function HostDashboard() {
     const activeSpaces = spaces.filter(s => s.is_active !== false)
 
     return (
-        <div style={{ minHeight: '100dvh', background: 'var(--color-bg-dark)', display: 'flex', flexDirection: 'column' }}>
-            <BarcodeScannerModal
-                open={showScanner}
-                onClose={() => setShowScanner(false)}
-                onDetected={handleScannerDetected}
-            />
+        <div style={{ minHeight: 'var(--app-viewport-height)', background: 'var(--color-bg-dark)', display: 'flex', flexDirection: 'column' }}>
+            {showScanner && (
+                <Suspense fallback={null}>
+                    <BarcodeScannerModal
+                        open={showScanner}
+                        onClose={() => setShowScanner(false)}
+                        onDetected={handleScannerDetected}
+                    />
+                </Suspense>
+            )}
             {/* Header */}
             <div
                 style={{
