@@ -236,8 +236,12 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     setError('Ce parking est complet pour ce créneau. Essaie une autre heure ou un autre parking.')
                 } else if (rpcData?.error === 'SELF_BOOKING_FORBIDDEN') {
                     setError('Vous ne pouvez pas réserver votre propre place commerçant.')
+                } else if (rpcData?.error === 'AUTH_REQUIRED') {
+                    setError('Votre session a expiré. Reconnectez-vous pour réserver.')
                 } else if (rpcData?.error === 'HOST_NOT_AVAILABLE') {
                     setError('Cette place n’est plus disponible pour le moment.')
+                } else if (rpcData?.error === 'INVALID_TIME_RANGE') {
+                    setError('Le créneau demandé est invalide.')
                 } else {
                     throw new Error(rpcData?.error ?? 'Erreur lors de la réservation.')
                 }
@@ -533,6 +537,10 @@ export default function MapView() {
                 setUser(authData.session?.user || null)
             }
 
+            if (authData.session?.user) {
+                await supabase.rpc('expire_pending_bookings')
+            }
+
             // Listen for auth changes
             const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
                 if (isMounted) {
@@ -677,7 +685,7 @@ export default function MapView() {
                             ScootSafe
                         </h1>
                         <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: 3, lineHeight: 1.35 }}>
-                            Stationnement et dépôt local.
+                            Carte publique, connexion optionnelle.
                         </p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>

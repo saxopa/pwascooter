@@ -153,8 +153,7 @@ test.describe('Page Mes Réservations', () => {
   })
 
   test('Navigation vers /bookings via le bouton header', async ({ page }) => {
-    // "Mes réservations" button in MapView header
-    const bookingsBtn = page.locator('button:has-text("Mes réservations")')
+    const bookingsBtn = page.locator('button[aria-label="Mes Réservations"]')
     await expect(bookingsBtn).toBeVisible({ timeout: 5000 })
 
     await bookingsBtn.click()
@@ -165,7 +164,7 @@ test.describe('Page Mes Réservations', () => {
 
   test('Page /bookings se charge', async ({ page }) => {
     // Navigate via button from map (not direct URL which has basepath issues)
-    const bookingsBtn = page.locator('button:has-text("Mes réservations")')
+    const bookingsBtn = page.locator('button[aria-label="Mes Réservations"]')
     await bookingsBtn.click()
     await page.waitForLoadState('networkidle')
 
@@ -178,7 +177,7 @@ test.describe('Page Mes Réservations', () => {
 
   test('Bouton retour depuis /bookings', async ({ page }) => {
     // Navigate to bookings via button
-    await page.locator('button:has-text("Mes réservations")').click()
+    await page.locator('button[aria-label="Mes Réservations"]').click()
     await page.waitForLoadState('networkidle')
 
     await page.locator('button[aria-label="Retour à la carte"]').click()

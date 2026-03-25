@@ -19,6 +19,9 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState<string | null>(null)
+    const [termsAccepted, setTermsAccepted] = useState(false)
+
+    const termsHref = `${window.location.origin}${import.meta.env.BASE_URL}#/cgu`
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -28,9 +31,14 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
 
         try {
             if (mode === 'register') {
+                if (!termsAccepted) {
+                    throw new Error('Tu dois accepter les CGU avant de créer un compte.')
+                }
+
                 const metadata: Record<string, string> = {
                     nom,
                     role: isHost ? 'host' : 'user',
+                    terms_accepted_at: new Date().toISOString(),
                 }
                 if (isHost && companyName.trim()) {
                     metadata.company_name = companyName.trim()
@@ -68,6 +76,15 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     async function handleGoogle() {
         setError(null)
         setLoading(true)
+
+        if (!termsAccepted) {
+            setError('Tu dois accepter les CGU avant de continuer avec Google.')
+            setLoading(false)
+            return
+        }
+
+        window.sessionStorage.setItem('scootsafe_terms_accepted_at', new Date().toISOString())
+
         const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
@@ -163,6 +180,34 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                 <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: 24 }}>
                     {mode === 'login' ? 'Accède à tes réservations ScootSafe' : 'Rejoins ScootSafe gratuitement'}
                 </p>
+
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        padding: '12px 14px',
+                        marginBottom: 18,
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${termsAccepted ? 'rgba(0,206,201,0.22)' : 'rgba(255,255,255,0.08)'}`,
+                        cursor: 'pointer',
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(event) => setTermsAccepted(event.target.checked)}
+                        style={{ marginTop: 2 }}
+                    />
+                    <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.83rem', lineHeight: 1.5 }}>
+                        J’ai lu et j’accepte les{' '}
+                        <a href={termsHref} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary-light)', fontWeight: 700 }}>
+                            CGU de ScootSafe
+                        </a>
+                        . Cette acceptation est requise avant toute création de compte ou première connexion via Google.
+                    </span>
+                </label>
 
                 {/* Google OAuth */}
                 <button
@@ -320,12 +365,12 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                     <button
                         type="submit"
                         className="btn-primary"
-                        disabled={loading}
+                        disabled={loading || (mode === 'register' && !termsAccepted)}
                         style={{
                             width: '100%',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                            opacity: loading ? 0.7 : 1,
-                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading || (mode === 'register' && !termsAccepted) ? 0.7 : 1,
+                            cursor: loading || (mode === 'register' && !termsAccepted) ? 'not-allowed' : 'pointer',
                         }}
                     >
                         {mode === 'login'

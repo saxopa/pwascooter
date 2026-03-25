@@ -14,6 +14,57 @@ export type Database = {
     }
     public: {
         Tables: {
+            booking_status_events: {
+                Row: {
+                    actor_role: string
+                    actor_user_id: string | null
+                    booking_id: string
+                    created_at: string
+                    id: string
+                    metadata: Json
+                    next_status: Database["public"]["Enums"]["booking_status"]
+                    previous_status: Database["public"]["Enums"]["booking_status"] | null
+                    reason: string
+                }
+                Insert: {
+                    actor_role: string
+                    actor_user_id?: string | null
+                    booking_id: string
+                    created_at?: string
+                    id?: string
+                    metadata?: Json
+                    next_status: Database["public"]["Enums"]["booking_status"]
+                    previous_status?: Database["public"]["Enums"]["booking_status"] | null
+                    reason: string
+                }
+                Update: {
+                    actor_role?: string
+                    actor_user_id?: string | null
+                    booking_id?: string
+                    created_at?: string
+                    id?: string
+                    metadata?: Json
+                    next_status?: Database["public"]["Enums"]["booking_status"]
+                    previous_status?: Database["public"]["Enums"]["booking_status"] | null
+                    reason?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "booking_status_events_actor_user_id_fkey"
+                        columns: ["actor_user_id"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "booking_status_events_booking_id_fkey"
+                        columns: ["booking_id"]
+                        isOneToOne: false
+                        referencedRelation: "bookings"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             bookings: {
                 Row: {
                     created_at: string | null
@@ -161,6 +212,10 @@ export type Database = {
                     p_booking_id: string
                 }
                 Returns: Database["public"]["Tables"]["bookings"]["Row"]
+            }
+            expire_pending_bookings: {
+                Args: Record<PropertyKey, never>
+                Returns: number
             }
             validate_booking_by_code: {
                 Args: {

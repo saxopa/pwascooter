@@ -84,6 +84,8 @@ export default function BookingsList() {
             return
         }
 
+        await supabase.rpc('expire_pending_bookings')
+
         const { data, error: err } = await supabase
             .from('bookings')
             .select('*, hosts(name, latitude, longitude)')
@@ -117,6 +119,8 @@ export default function BookingsList() {
         if (rpcError) {
             if (rpcError.message.includes('BOOKING_NOT_CANCELLABLE')) {
                 setError('Cette réservation ne peut plus être annulée.')
+            } else if (rpcError.message.includes('CANCELLATION_WINDOW_CLOSED')) {
+                setError('L’annulation client est fermée à moins de 15 minutes du début du créneau.')
             } else if (rpcError.message.includes('FORBIDDEN')) {
                 setError('Vous ne pouvez pas annuler cette réservation.')
             } else {

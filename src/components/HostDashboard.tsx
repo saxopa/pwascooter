@@ -22,7 +22,7 @@ import HostSpaceForm from './HostSpaceForm'
 import BarcodeScannerModal from './BarcodeScannerModal'
 import LegalLinks from './LegalLinks'
 import type { Tables } from '../types/supabase'
-import { extractBookingPickupCode, resolveBookingPickupCode } from '../lib/bookingCode'
+import { extractBookingPickupCode } from '../lib/bookingCode'
 
 type Host = Tables<'hosts'>
 type Booking = Tables<'bookings'>
@@ -65,6 +65,8 @@ export default function HostDashboard() {
     const loadData = useCallback(async () => {
         if (!user) return
         setLoading(true)
+
+        await supabase.rpc('expire_pending_bookings')
 
         const { data: spacesData } = await supabase
             .from('hosts')
@@ -317,7 +319,7 @@ export default function HostDashboard() {
                                 <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Validation dépôt</h2>
                             </div>
                             <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.84rem', lineHeight: 1.5, marginBottom: 14 }}>
-                                Saisis ou scanne le code présenté par le client pour confirmer que l’objet a bien été pris en charge.
+                                Saisis ou scanne le code présenté par le client pour confirmer la prise en charge. Le code n’est pas réaffiché dans la liste pour éviter une validation sans présentation effective du client.
                             </p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <input
@@ -554,29 +556,16 @@ export default function HostDashboard() {
                                                     </span>
                                                 </div>
                                                 <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                                                    <div data-testid="recent-booking-code" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', letterSpacing: '0.16em', fontWeight: 800 }}>
-                                                        {resolveBookingPickupCode(booking.pickup_code, booking.id)}
+                                                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', lineHeight: 1.45 }}>
+                                                        {booking.status === 'pending'
+                                                            ? 'En attente de présentation du code client.'
+                                                            : booking.status === 'active'
+                                                                ? 'Objet déposé et actuellement en garde chez le commerçant.'
+                                                                : booking.status === 'completed'
+                                                                    ? 'Prise en charge clôturée.'
+                                                                    : 'Réservation inactive.'}
                                                     </div>
                                                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                                        <button
-                                                            data-testid="recent-booking-validate-button"
-                                                            type="button"
-                                                            onClick={() => validateBookingByCode(resolveBookingPickupCode(booking.pickup_code, booking.id))}
-                                                            disabled={booking.status === 'active' || booking.status === 'completed' || validating}
-                                                            style={{
-                                                                padding: '8px 12px',
-                                                                borderRadius: 'var(--radius-sm)',
-                                                                border: '1px solid rgba(0,184,148,0.2)',
-                                                                background: booking.status === 'active' || booking.status === 'completed' ? 'rgba(255,255,255,0.05)' : 'rgba(0,184,148,0.12)',
-                                                                color: booking.status === 'active' || booking.status === 'completed' ? 'var(--color-text-muted)' : 'var(--color-success)',
-                                                                cursor: booking.status === 'active' || booking.status === 'completed' || validating ? 'default' : 'pointer',
-                                                                fontSize: '0.78rem',
-                                                                fontWeight: 700,
-                                                                opacity: booking.status === 'active' || booking.status === 'completed' || validating ? 0.6 : 1,
-                                                            }}
-                                                        >
-                                                            {booking.status === 'completed' ? 'Déjà clôturée' : booking.status === 'active' ? 'Déjà validée' : 'Valider ce code'}
-                                                        </button>
                                                         {booking.status === 'active' && (
                                                             <button
                                                                 type="button"

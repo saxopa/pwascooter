@@ -23,6 +23,10 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
             if (selectedRole === 'host' && companyName.trim()) {
                 metadata.company_name = companyName.trim()
             }
+            const acceptedTermsAt = window.sessionStorage.getItem('scootsafe_terms_accepted_at')
+            if (acceptedTermsAt) {
+                metadata.terms_accepted_at = acceptedTermsAt
+            }
 
             const { data: authUserData, error: getUserErr } = await supabase.auth.getUser()
             if (getUserErr) throw getUserErr
@@ -57,6 +61,10 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
             // Do not block the UX if auth metadata update is slow or rejected.
             supabase.auth.updateUser({
                 data: metadata,
+            }).finally(() => {
+                if (acceptedTermsAt) {
+                    window.sessionStorage.removeItem('scootsafe_terms_accepted_at')
+                }
             }).catch(() => undefined)
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Impossible d’enregistrer votre rôle.')

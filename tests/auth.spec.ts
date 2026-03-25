@@ -25,6 +25,11 @@ test.describe('Authentification — Email', () => {
     await openAuthModal(page)
     await switchToRegister(page)
 
+    await expect(page.locator('input[type="checkbox"]')).toBeVisible()
+    await expect(page.locator('button[type="submit"]')).toBeDisabled()
+
+    await page.locator('input[type="checkbox"]').check()
+
     // Host toggle should NOT be active by default
     // The toggle button text should say "commerçant" but not be styled as active
     const toggle = page.locator('button:has-text("commerçant")')
@@ -53,6 +58,7 @@ test.describe('Authentification — Email', () => {
   test('Inscription HOST (toggle ON + champ entreprise)', async ({ page }) => {
     await openAuthModal(page)
     await switchToRegister(page)
+    await page.locator('input[type="checkbox"]').check()
 
     // Activate host toggle
     await toggleHostMode(page)
@@ -110,6 +116,23 @@ test.describe('Authentification — Email', () => {
     const errorMsg = page.locator('text=Email ou mot de passe incorrect')
     await expect(errorMsg).toBeVisible({ timeout: 10000 })
   })
+
+  test('Les CGU sont obligatoires avant inscription', async ({ page }) => {
+    await openAuthModal(page)
+    await switchToRegister(page)
+
+    await expect(page.locator('button[type="submit"]')).toBeDisabled()
+
+    await fillAuthForm(page, {
+      email: generateTestEmail('blocked'),
+      password: 'Test1234!@#$',
+      nom: 'BlockedUser',
+      isRegister: true,
+    })
+
+    await expect(page.locator('button[type="submit"]')).toBeDisabled()
+    await expect(page.locator('text=J’ai lu et j’accepte les CGU')).toBeVisible()
+  })
 })
 
 test.describe('Authentification — Google OAuth', () => {
@@ -142,7 +165,7 @@ test.describe('AuthModal — Navigation UI', () => {
 
     // Switch to register
     await switchToRegister(page)
-    await expect(page.locator('h2:has-text("Créer un compte")')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Créer un compte', exact: true })).toBeVisible()
 
     // "Ton prénom" field should be visible in register mode
     await expect(page.locator('input[placeholder="Ton prénom"]')).toBeVisible()
@@ -165,5 +188,19 @@ test.describe('AuthModal — Navigation UI', () => {
 
     // Modal should disappear — "Connexion" header gone
     await expect(page.locator('h2:has-text("Connexion")')).not.toBeVisible({ timeout: 3000 })
+  })
+})
+
+test.describe('Landing — Parcours visiteur', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+  })
+
+  test('Le visiteur peut ouvrir la carte sans compte', async ({ page }) => {
+    await expect(page.locator('text=Explorer la carte sans compte')).toBeVisible()
+    await page.locator('text=Explorer la carte sans compte').click()
+    await expect(page).toHaveURL(/#\/map/)
+    await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 10000 })
   })
 })
