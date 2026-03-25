@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -122,6 +122,25 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
   return null
 }
 
+function AppFrame({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  const isFullscreenRoute = location.pathname === '/map'
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        minHeight: 'var(--app-viewport-height)',
+        height: isFullscreenRoute ? 'var(--app-viewport-height)' : 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function App() {
   const [ready, setReady] = useState(false)
 
@@ -146,14 +165,14 @@ function App() {
   }, [])
 
   return (
-    <div style={{ width: '100%', minHeight: 'var(--app-viewport-height)', display: 'flex', flexDirection: 'column' }}>
+    <AppFrame>
       <AppBootstrap onReady={handleReady} />
       {!ready ? (
         <AppShellLoader />
       ) : (
         <AppRoutes />
       )}
-    </div>
+    </AppFrame>
   )
 }
 
