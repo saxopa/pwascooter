@@ -15,6 +15,7 @@ import type { Tables } from '../types/supabase'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
 import LegalLinks from './LegalLinks'
+import { sendBookingNotification } from '../lib/bookingNotifications'
 
 type Booking = Tables<'bookings'> & {
     hosts: Pick<Tables<'hosts'>, 'name' | 'latitude' | 'longitude'> | null
@@ -132,6 +133,7 @@ export default function BookingsList() {
 
         await load()
         setActionMessage('Réservation annulée.')
+        void sendBookingNotification('booking_cancelled', bookingId)
         setCancellingId(null)
     }
 

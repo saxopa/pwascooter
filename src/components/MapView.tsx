@@ -32,6 +32,7 @@ import RoleSelectModal from './RoleSelectModal'
 import { useHostProfile } from '../hooks/useHostProfile'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
+import { sendBookingNotification } from '../lib/bookingNotifications'
 
 type Host = Tables<'hosts'>
 
@@ -253,6 +254,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     .single()
 
                 setConfirmedPickupCode(resolveBookingPickupCode(bookingData?.pickup_code, rpcData.booking_id))
+                void sendBookingNotification('booking_created', rpcData.booking_id)
             }
             setSuccess(true)
         } catch (err: unknown) {

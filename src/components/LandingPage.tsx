@@ -319,6 +319,9 @@ export default function LandingPage() {
               <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
                 Validation par code ou scanner
               </span>
+              <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
+                Installable iPhone et Android
+              </span>
             </div>
 
             {oauthError && (

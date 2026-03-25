@@ -22,6 +22,7 @@ import HostSpaceForm from './HostSpaceForm'
 import LegalLinks from './LegalLinks'
 import type { Tables } from '../types/supabase'
 import { extractBookingPickupCode } from '../lib/bookingCode'
+import { sendBookingNotification } from '../lib/bookingNotifications'
 
 type Host = Tables<'hosts'>
 type Booking = Tables<'bookings'>
@@ -178,6 +179,7 @@ export default function HostDashboard() {
         setValidationCode('')
         const hostName = spaces.find((space) => space.id === validatedBooking.host_id)?.name ?? 'votre place'
         setValidationSuccess(`Dépôt validé pour ${hostName} · ${formatBookingSchedule(validatedBooking.start_time, validatedBooking.end_time)}.`)
+        void sendBookingNotification('booking_activated', validatedBooking.id)
         setValidating(false)
     }
 
@@ -211,6 +213,7 @@ export default function HostDashboard() {
         await loadData()
         const hostName = spaces.find((space) => space.id === completedBooking.host_id)?.name ?? 'votre place'
         setValidationSuccess(`Réservation clôturée pour ${hostName} · ${formatBookingSchedule(completedBooking.start_time, completedBooking.end_time)}.`)
+        void sendBookingNotification('booking_completed', completedBooking.id)
         setCompletingId(null)
     }
 
