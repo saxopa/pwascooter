@@ -1,26 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Loader2, ScanLine, X } from 'lucide-react'
-
-const REQUESTED_FORMATS = ['code_39', 'code_128', 'qr_code'] as const
-
-type DetectorFormat = typeof REQUESTED_FORMATS[number]
-
-interface DetectedBarcode {
-  rawValue?: string
-}
-
-interface BarcodeDetectorInstance {
-  detect: (source: ImageBitmapSource) => Promise<DetectedBarcode[]>
-}
-
-interface BarcodeDetectorConstructor {
-  new(options?: { formats?: DetectorFormat[] }): BarcodeDetectorInstance
-  getSupportedFormats?: () => Promise<string[]>
-}
-
-type WindowWithBarcodeDetector = Window & {
-  BarcodeDetector?: BarcodeDetectorConstructor
-}
+import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 
 interface BarcodeScannerModalProps {
   open: boolean
@@ -41,26 +21,8 @@ export default function BarcodeScannerModal({
     if (!open) return
 
     let isMounted = true
-    let stream: MediaStream | null = null
-    let scanTimer: number | null = null
-    let isDetecting = false
     let hasDetected = false
-
-    async function stopScanner() {
-      if (scanTimer !== null) {
-        window.clearInterval(scanTimer)
-      }
-
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
-      }
-
-      const video = videoRef.current
-      if (video) {
-        video.pause()
-        video.srcObject = null
-      }
-    }
+    const codeReader = new BrowserMultiFormatReader()
 
     async function startScanner() {
       setInitializing(true)
@@ -71,75 +33,46 @@ export default function BarcodeScannerModal({
           throw new Error('CAMERA_UNAVAILABLE')
         }
 
-        const BarcodeDetector = (window as WindowWithBarcodeDetector).BarcodeDetector
-
-        if (!BarcodeDetector) {
-          throw new Error('DETECTOR_UNAVAILABLE')
-        }
-
-        const supportedFormats = BarcodeDetector.getSupportedFormats
-          ? await BarcodeDetector.getSupportedFormats()
-          : [...REQUESTED_FORMATS]
-
-        const enabledFormats = REQUESTED_FORMATS.filter((format) => supportedFormats.includes(format))
-
-        if (enabledFormats.length === 0) {
-          throw new Error('FORMAT_UNAVAILABLE')
-        }
-
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-          },
-          audio: false,
-        })
-
-        if (!isMounted) {
-          await stopScanner()
-          return
-        }
-
         const video = videoRef.current
-        if (!video) {
-          throw new Error('VIDEO_UNAVAILABLE')
-        }
+        if (!video) throw new Error('VIDEO_UNAVAILABLE')
 
-        video.srcObject = stream
-        video.setAttribute('playsinline', 'true')
-        await video.play()
+        await codeReader.decodeFromConstraints(
+          {
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          },
+          video,
+          (result, err) => {
+            if (!isMounted || hasDetected) return
 
-        const detector = new BarcodeDetector({ formats: enabledFormats })
-
-        scanTimer = window.setInterval(async () => {
-          if (!videoRef.current || isDetecting || hasDetected) return
-
-          isDetecting = true
-
-          try {
-            const detectedBarcodes = await detector.detect(videoRef.current)
-            const rawValue = detectedBarcodes.find((barcode) => barcode.rawValue?.trim())?.rawValue?.trim()
-
-            if (rawValue && isMounted) {
-              hasDetected = true
-              onDetected(rawValue)
+            if (result) {
+              const rawValue = result.getText().trim()
+              if (rawValue) {
+                hasDetected = true
+                onDetected(rawValue)
+              }
             }
-          } catch {
-            // Ignore transient detector failures while the camera stream stabilizes.
-          } finally {
-            isDetecting = false
+
+            if (err && !(err instanceof NotFoundException)) {
+              // Ignore NotFoundException (thrown continuously when no code is found in frame).
+              // Other errors can be ignored safely while stream stabilizes.
+            }
           }
-        }, 350)
+        )
+
       } catch (scannerError) {
         if (!isMounted) return
 
-        const message = scannerError instanceof Error ? scannerError.message : 'UNKNOWN'
+        const message = scannerError instanceof Error ? scannerError.message : String(scannerError)
 
-        if (message === 'CAMERA_UNAVAILABLE') {
-          setError('La caméra n’est pas disponible dans ce navigateur.')
-        } else if (message === 'DETECTOR_UNAVAILABLE' || message === 'FORMAT_UNAVAILABLE') {
-          setError('Le scan caméra n’est pas pris en charge ici. Utilise la saisie manuelle du code.')
-        } else if (message === 'NotAllowedError') {
+        if (message.includes('Permission') || message.includes('NotAllowedError')) {
           setError('Accès caméra refusé. Autorise la caméra puis réessaie.')
+        } else if (
+          message === 'CAMERA_UNAVAILABLE' ||
+          message.includes('NotFoundError') ||
+          message.includes('devices')
+        ) {
+          setError('La caméra n’est pas disponible sur cet appareil.')
         } else {
           setError('Impossible de démarrer le scanner pour le moment.')
         }
@@ -154,7 +87,7 @@ export default function BarcodeScannerModal({
 
     return () => {
       isMounted = false
-      void stopScanner()
+      codeReader.reset() // Stops the camera stream properly
     }
   }, [onDetected, open])
 
