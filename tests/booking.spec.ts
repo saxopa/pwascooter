@@ -136,10 +136,19 @@ test.describe('Réservation — Bottom Sheet', () => {
     await expect(bookBtn).toBeVisible()
     await bookBtn.click()
 
-    // Wait for simulated payment (2s) + Supabase call
-    // Should show "Réservation confirmée !" or an error
-    const successOrError = page.locator('text=Réservation confirmée, text=complet, text=erreur').first()
-    await expect(successOrError).toBeVisible({ timeout: 10000 })
+    await expect
+      .poll(
+        async () => {
+          const hasBookingCode = await page.getByTestId('booking-code-card').isVisible().catch(() => false)
+          const hasError = await page.locator('text=/Erreur|erreur|complet/i').first().isVisible().catch(() => false)
+          if (hasBookingCode) return 'success'
+          if (hasError) return 'error'
+          return 'pending'
+        },
+        { timeout: 10000 }
+      )
+      .toBe('success')
+
     await expect(page.getByTestId('booking-code-card')).toBeVisible({ timeout: 10000 })
     await expect(page.getByTestId('booking-code-value')).toContainText(/[A-Z0-9]{8}/)
 
