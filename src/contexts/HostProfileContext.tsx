@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { User, Session } from '@supabase/supabase-js'
 
@@ -66,6 +66,10 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         if (user) await fetchProfile(user)
     }, [user, fetchProfile])
 
+    // Ref to avoid stale closure AND prevent deps from triggering re-subscription
+    const fetchProfileRef = useRef(fetchProfile)
+    fetchProfileRef.current = fetchProfile
+
     useEffect(() => {
         let isMounted = true
 
@@ -73,7 +77,7 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
             const { data } = await supabase.auth.getSession()
             const currentUser = data.session?.user ?? null
             if (isMounted) setUser(currentUser)
-            if (currentUser) await fetchProfile(currentUser)
+            if (currentUser) await fetchProfileRef.current(currentUser)
             if (isMounted) setLoading(false)
         }
 
@@ -83,7 +87,7 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
             async (_event: string, session: Session | null) => {
                 const newUser = session?.user ?? null
                 if (isMounted) setUser(newUser)
-                if (newUser) await fetchProfile(newUser)
+                if (newUser) await fetchProfileRef.current(newUser)
                 else if (isMounted) setProfile(null)
             }
         )
@@ -92,7 +96,8 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
             isMounted = false
             listener.subscription.unsubscribe()
         }
-    }, [fetchProfile])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     return (
         <HostProfileContext.Provider

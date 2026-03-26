@@ -178,12 +178,10 @@ function FlyToUser({
     locateRequest,
     hosts,
     onNearestFound,
-    onLocationUpdate,
 }: {
     locateRequest: number
     hosts: Host[]
     onNearestFound: (host: Host) => void
-    onLocationUpdate: (pos: [number, number]) => void
 }) {
     const map = useMap()
     
@@ -206,25 +204,8 @@ function FlyToUser({
         return R * c
     }
 
-    // Set up continuous tracking with throttling to prevent infinite UI freezes
-    useEffect(() => {
-        if (!navigator.geolocation) return
-        let lastUpdate = 0
-        const MIN_UPDATE_INTERVAL = 3000 // 3 seconds
-
-        const watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const now = Date.now()
-                if (now - lastUpdate >= MIN_UPDATE_INTERVAL) {
-                    onLocationUpdate([pos.coords.latitude, pos.coords.longitude])
-                    lastUpdate = now
-                }
-            },
-            () => { /* ignore */ },
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-        )
-        return () => navigator.geolocation.clearWatch(watchId)
-    }, [onLocationUpdate])
+    // GPS continuous tracking is now fully handled by UserLocationMarker
+    // No watchPosition here — prevents re-render cascade
 
     // Wait for locate request
     useEffect(() => {
@@ -790,12 +771,9 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 // ────────────────────── MapView Component ────────────────────
 export default function MapView() {
     const navigate = useNavigate()
-    const { profile, isHost, refreshProfile, loading: profileLoading } = useHostProfile()
+    const { user, profile, isHost, refreshProfile, loading: profileLoading } = useHostProfile()
     const { hosts, loading: hostsLoading, error: hostsError } = useHosts()
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
-    const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
     const [showAuthModal, setShowAuthModal] = useState(false)
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
@@ -814,48 +792,20 @@ export default function MapView() {
         setSelectedHost(host)
     }, [])
 
-    // Fetch Session (hosts come from HostsContext now)
+    // Expire pending bookings once on mount (if user is logged in)
     useEffect(() => {
-        let isMounted = true
-
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                if (isMounted) setUser(session?.user ?? null)
-            }
-        )
-
-        async function loadSession() {
-            const { data: authData } = await supabase.auth.getSession()
-            if (isMounted) setUser(authData.session?.user ?? null)
-
-            if (authData.session?.user) {
-                await supabase.rpc('expire_pending_bookings')
-            }
-
-            if (isMounted) setLoading(false)
+        if (user) {
+            void supabase.rpc('expire_pending_bookings')
         }
-
-        void loadSession()
-
-        return () => {
-            isMounted = false
-            authListener.subscription.unsubscribe()
-        }
-    }, [])
-
-    // Sync hosts loading/error from context
-    useEffect(() => {
-        if (hostsError) setError(hostsError)
-    }, [hostsError])
-
-    useEffect(() => {
-        if (!hostsLoading && !loading) setLoading(false)
-    }, [hostsLoading, loading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [!!user]) // only re-run when user goes from null->truthy or vice versa
 
     async function handleSignOut() {
         await supabase.auth.signOut()
     }
 
+    const loading = hostsLoading
+    const error = hostsError
     const visibleCount = filteredHosts.length
     const showBottomDock = !selectedHost
 
@@ -899,7 +849,6 @@ export default function MapView() {
                     locateRequest={locateRequest}
                     hosts={filteredHosts}
                     onNearestFound={handleSelectHost}
-                    onLocationUpdate={() => { /* GPS tracking is now in UserLocationMarker */ }}
                 />
                 <MapClickClose onClose={() => setSelectedHost(null)} />
 
