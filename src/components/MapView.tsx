@@ -363,11 +363,18 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         if (!confirmedBookingId) return
 
         try {
-            const { data: bookingData } = await supabase
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+            const { data: bookingData, error } = await supabase
                 .from('bookings')
                 .select('id, pickup_code')
                 .eq('id', confirmedBookingId)
+                .abortSignal(controller.signal)
                 .single()
+
+            clearTimeout(timeoutId)
+            if (error) throw error
 
             const pickupCode = resolveBookingPickupCode(bookingData?.pickup_code, confirmedBookingId)
             setConfirmedPickupCode(pickupCode)
@@ -390,10 +397,13 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 console.error('Erreur sauvegarde locale', err)
             }
             
-            setSuccess(true)
+            // CAS B: Déplace la génération QR pour libérer le main thread de Safari
+            setTimeout(() => {
+                setSuccess(true)
+            }, 0)
         } catch (err) {
             console.error(err)
-            setError('Erreur lors de la récupération du code de réservation.')
+            setError('Délai dépassé ou erreur réseau lors de la récupération du code.')
         }
     }
 

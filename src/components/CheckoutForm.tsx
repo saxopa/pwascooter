@@ -48,14 +48,20 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
         setMessage(error.message ?? 'Erreur de paiement.')
         setIsLoading(false)
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
         const { error: dbError } = await supabase
           .from('bookings')
           .update({ status: 'active' })
           .eq('id', bookingId)
+          .abortSignal(controller.signal)
+
+        clearTimeout(timeoutId)
 
         if (dbError) {
           console.error('Erreur DB après paiement:', dbError)
-          setMessage('Paiement réussi mais erreur de synchronisation.')
+          setMessage('Paiement réussi mais erreur de synchronisation. Vérifiez votre connexion.')
           setIsLoading(false)
         } else {
           onSuccess()
