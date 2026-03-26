@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MapContainer,
@@ -173,6 +173,15 @@ function FlyToUser({
     onLocationUpdate: (pos: [number, number]) => void
 }) {
     const map = useMap()
+    
+    // Prevent infinite loops by keeping refs to rapidly changing arrays/functions
+    const hostsRef = useRef(hosts)
+    const callbackRef = useRef(onNearestFound)
+
+    useEffect(() => {
+        hostsRef.current = hosts
+        callbackRef.current = onNearestFound
+    }, [hosts, onNearestFound])
 
     // Haversine formula
     const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -210,25 +219,26 @@ function FlyToUser({
                 map.flyTo([lat, lng], 15, { duration: 1 })
                 
                 // Find nearest host
-                if (hosts.length > 0) {
-                    let closest = hosts[0]
-                    let minDist = getDistance(lat, lng, hosts[0].latitude, hosts[0].longitude)
+                const currentHosts = hostsRef.current
+                if (currentHosts.length > 0) {
+                    let closest = currentHosts[0]
+                    let minDist = getDistance(lat, lng, currentHosts[0].latitude, currentHosts[0].longitude)
                     
-                    for (let i = 1; i < hosts.length; i++) {
-                        const dist = getDistance(lat, lng, hosts[i].latitude, hosts[i].longitude)
+                    for (let i = 1; i < currentHosts.length; i++) {
+                        const dist = getDistance(lat, lng, currentHosts[i].latitude, currentHosts[i].longitude)
                         if (dist < minDist) {
                             minDist = dist
-                            closest = hosts[i]
+                            closest = currentHosts[i]
                         }
                     }
                     
                     // Show nearest spot's info automatically
-                    setTimeout(() => onNearestFound(closest), 400)
+                    setTimeout(() => callbackRef.current(closest), 400)
                 }
             },
             () => {}
         )
-    }, [locateRequest, map, hosts, onNearestFound])
+    }, [locateRequest, map])
 
     return null
 }
@@ -325,8 +335,26 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     .eq('id', rpcData.booking_id)
                     .single()
 
-                setConfirmedPickupCode(resolveBookingPickupCode(bookingData?.pickup_code, rpcData.booking_id))
+                const pickupCode = resolveBookingPickupCode(bookingData?.pickup_code, rpcData.booking_id)
+                setConfirmedPickupCode(pickupCode)
                 void sendBookingNotification('booking_created', rpcData.booking_id)
+
+                // Stockage local de la réservation (sauvegarde hors ligne/cache)
+                try {
+                    const localBookingData = {
+                        bookingId: rpcData.booking_id,
+                        pickupCode: pickupCode,
+                        hostName: host.name,
+                        hostLat: host.latitude,
+                        hostLng: host.longitude,
+                        startTime: startTime.toISOString(),
+                        endTime: endTime.toISOString(),
+                        totalPrice: Number(totalPrice.toFixed(2))
+                    }
+                    localStorage.setItem('scootsafe_latest_booking', JSON.stringify(localBookingData))
+                } catch (err) {
+                    console.error('Erreur sauvegarde locale', err)
+                }
             }
             setSuccess(true)
         } catch (err: unknown) {
