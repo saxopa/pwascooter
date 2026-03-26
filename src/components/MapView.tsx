@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MapContainer,
@@ -24,6 +24,7 @@ import {
     SlidersHorizontal,
     Shield,
     ChevronRight,
+    Navigation,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
@@ -92,6 +93,29 @@ function createMarkerIcon(hasCharging: boolean) {
     return icon
 }
 
+// ────────────────────── User Location Marker ───────────────────
+let userMarkerIcon: L.DivIcon | null = null
+
+function getUserMarkerIcon() {
+    if (userMarkerIcon) return userMarkerIcon
+
+    const iconHtml = `
+        <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+            <div style="position: absolute; width: 28px; height: 28px; background: rgba(0, 122, 255, 0.4); border-radius: 50%; animation: marker-pulse 2s ease-in-out infinite;"></div>
+            <div style="position: relative; width: 14px; height: 14px; border-radius: 50%; background: #007AFF; border: 2.5px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
+        </div>
+    `
+
+    userMarkerIcon = L.divIcon({
+        html: iconHtml,
+        className: '',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+    })
+
+    return userMarkerIcon
+}
+
 // ────────────────────── Fly-to helper ────────────────────────
 function FlyToMarker({ position }: { position: [number, number] | null }) {
     const map = useMap()
@@ -137,26 +161,74 @@ function EnsureMapLayout() {
 }
 
 // ────────────────────── Fly-to User ──────────────────────────
-function FlyToUser({ locateRequest }: { locateRequest: number }) {
+function FlyToUser({
+    locateRequest,
+    hosts,
+    onNearestFound,
+    onLocationUpdate,
+}: {
+    locateRequest: number
+    hosts: Host[]
+    onNearestFound: (host: Host) => void
+    onLocationUpdate: (pos: [number, number]) => void
+}) {
     const map = useMap()
-    const hasHandledInitialRequest = useRef(false)
 
+    // Haversine formula
+    const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const R = 6371
+        const dLat = (lat2 - lat1) * (Math.PI / 180)
+        const dLon = (lon2 - lon1) * (Math.PI / 180)
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+    }
+
+    // Set up continuous tracking
+    useEffect(() => {
+        if (!navigator.geolocation) return
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                onLocationUpdate([pos.coords.latitude, pos.coords.longitude])
+            },
+            () => { /* ignore */ },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        )
+        return () => navigator.geolocation.clearWatch(watchId)
+    }, [onLocationUpdate])
+
+    // Wait for locate request
     useEffect(() => {
         if (!locateRequest || !navigator.geolocation) return
 
-        if (!hasHandledInitialRequest.current) {
-            hasHandledInitialRequest.current = true
-        }
-
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1 })
+                const lat = pos.coords.latitude
+                const lng = pos.coords.longitude
+                
+                // Fly to the user
+                map.flyTo([lat, lng], 15, { duration: 1 })
+                
+                // Find nearest host
+                if (hosts.length > 0) {
+                    let closest = hosts[0]
+                    let minDist = getDistance(lat, lng, hosts[0].latitude, hosts[0].longitude)
+                    
+                    for (let i = 1; i < hosts.length; i++) {
+                        const dist = getDistance(lat, lng, hosts[i].latitude, hosts[i].longitude)
+                        if (dist < minDist) {
+                            minDist = dist
+                            closest = hosts[i]
+                        }
+                    }
+                    
+                    // Show nearest spot's info automatically
+                    setTimeout(() => onNearestFound(closest), 400)
+                }
             },
-            () => {
-                // Permission denied or unavailable: stay on Toulouse
-            }
+            () => {}
         )
-    }, [locateRequest, map])
+    }, [locateRequest, map, hosts, onNearestFound])
 
     return null
 }
@@ -454,45 +526,68 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     </div>
                 )}
 
-                {/* Auth / CTA Button */}
-                {!user ? (
+                {/* Auth / CTA Button & Itinerary */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <button
-                        onClick={onOpenAuth}
+                        onClick={() => {
+                            const url = `https://www.google.com/maps/dir/?api=1&destination=${host.latitude},${host.longitude}`
+                            window.open(url, '_blank')
+                        }}
                         style={{
-                            width: '100%', padding: '14px 28px',
+                            flex: '0 0 auto',
+                            padding: '14px',
                             background: 'rgba(255,255,255,0.08)', color: 'white',
                             border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                             cursor: 'pointer', fontWeight: 600,
                         }}
+                        title="S'y rendre (Itinéraire Google Maps)"
                     >
-                        <UserCircle size={18} />
-                        Se connecter pour réserver
+                        <Navigation size={18} />
                     </button>
-                ) : (
-                    <button
-                        className="btn-primary"
-                        onClick={handleBook}
-                        disabled={isPaying || isSelfBooking}
-                        style={{
-                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                            opacity: isPaying || isSelfBooking ? 0.7 : 1,
-                            cursor: isPaying || isSelfBooking ? 'not-allowed' : 'pointer'
-                        }}
-                    >
-                        {isPaying ? (
-                            <>
-                                <Loader2 size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
-                                Paiement en cours...
-                            </>
-                        ) : (
-                            <>
-                                <CreditCard size={18} />
-                                Payer et Réserver ({totalPrice.toFixed(2)} €)
-                            </>
-                        )}
-                    </button>
-                )}
+
+                    {!user ? (
+                        <button
+                            onClick={onOpenAuth}
+                            style={{
+                                flex: 1, padding: '14px 20px',
+                                background: 'rgba(255,255,255,0.08)', color: 'white',
+                                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                cursor: 'pointer', fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            <UserCircle size={18} />
+                            Se connecter pour réserver
+                        </button>
+                    ) : (
+                        <button
+                            className="btn-primary"
+                            onClick={handleBook}
+                            disabled={isPaying || isSelfBooking}
+                            style={{
+                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                opacity: isPaying || isSelfBooking ? 0.7 : 1,
+                                cursor: isPaying || isSelfBooking ? 'not-allowed' : 'pointer',
+                                padding: '14px 20px',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {isPaying ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                                    En cours...
+                                </>
+                            ) : (
+                                <>
+                                    <CreditCard size={18} />
+                                    Payer ({totalPrice.toFixed(2)} €)
+                                </>
+                            )}
+                        </button>
+                    )}
+                </div>
             </div>
         </>
     )
@@ -511,6 +606,7 @@ export default function MapView() {
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
     const [locateRequest, setLocateRequest] = useState(0)
+    const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
 
     const needsRoleSelect = !!user && !profileLoading && !profile?.role
 
@@ -617,8 +713,17 @@ export default function MapView() {
                 />
 
                 <EnsureMapLayout />
-                <FlyToUser locateRequest={locateRequest} />
+                <FlyToUser
+                    locateRequest={locateRequest}
+                    hosts={filteredHosts}
+                    onNearestFound={setSelectedHost}
+                    onLocationUpdate={setUserLocation}
+                />
                 <MapClickClose onClose={() => setSelectedHost(null)} />
+
+                {userLocation && (
+                    <Marker position={userLocation} icon={getUserMarkerIcon()} zIndexOffset={100} />
+                )}
 
                 <FlyToMarker
                     position={
