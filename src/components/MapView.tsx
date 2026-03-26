@@ -198,12 +198,19 @@ function FlyToUser({
         return R * c
     }
 
-    // Set up continuous tracking
+    // Set up continuous tracking with throttling to prevent infinite UI freezes
     useEffect(() => {
         if (!navigator.geolocation) return
+        let lastUpdate = 0
+        const MIN_UPDATE_INTERVAL = 3000 // 3 seconds
+
         const watchId = navigator.geolocation.watchPosition(
             (pos) => {
-                onLocationUpdate([pos.coords.latitude, pos.coords.longitude])
+                const now = Date.now()
+                if (now - lastUpdate >= MIN_UPDATE_INTERVAL) {
+                    onLocationUpdate([pos.coords.latitude, pos.coords.longitude])
+                    lastUpdate = now
+                }
             },
             () => { /* ignore */ },
             { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }

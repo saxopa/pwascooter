@@ -19,28 +19,34 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const handlePaymentClick = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault()
     if (!stripe || !elements) return
 
     setIsLoading(true)
     setMessage(null)
 
     try {
+      // Force UI validation explicite depuis Stripe
+      const { error: submitError } = await elements.submit()
+      if (submitError) {
+        setMessage(submitError.message ?? 'Veuillez vérifier vos informations.')
+        setIsLoading(false)
+        return
+      }
+
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: window.location.href, // Requis par Stripe même si redirect='if_required'
+          return_url: window.location.href, 
         },
-        redirect: 'if_required', // Avoid full page reload in PWA
+        redirect: 'if_required', 
       })
 
       if (error) {
         setMessage(error.message ?? 'Erreur de paiement.')
         setIsLoading(false)
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // Payment successful, update booking status to active
         const { error: dbError } = await supabase
           .from('bookings')
           .update({ status: 'active' })
@@ -48,7 +54,7 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
 
         if (dbError) {
           console.error('Erreur DB après paiement:', dbError)
-          setMessage('Paiement réussi mais erreur lors de la confirmation en base.')
+          setMessage('Paiement réussi mais erreur de synchronisation.')
           setIsLoading(false)
         } else {
           onSuccess()
@@ -65,11 +71,11 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
   }
 
   return (
-    <form id="payment-form" onSubmit={handleSubmit} style={{ width: '100%', textAlign: 'left' }}>
+    <div style={{ width: '100%', textAlign: 'left' }}>
       <PaymentElement id="payment-element" options={{ layout: 'tabs' }} />
       <button
         disabled={isLoading || !stripe || !elements}
-        id="submit"
+        onClick={handlePaymentClick}
         className="btn-primary"
         style={{ width: '100%', marginTop: 24, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
       >
@@ -83,6 +89,6 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
       </button>
 
       {message && <div style={{ marginTop: 16, color: 'var(--color-danger)', fontSize: '0.9rem', textAlign: 'center' }}>{message}</div>}
-    </form>
+    </div>
   )
 }
