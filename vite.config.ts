@@ -25,6 +25,9 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: false,
         clientsClaim: false,
+        // AXE 1 — SPA offline fallback : toute navigation non-cachée tombe sur index.html
+        navigateFallback: '/pwascooter/index.html',
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-d]\.basemaps\.cartocdn\.com\//,
@@ -50,6 +53,33 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // AXE 3 — Background Sync : file d'attente pour mutations Supabase hors-ligne
+          {
+            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\//,
+            method: 'POST',
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'supabase-mutations-queue',
+                options: {
+                  maxRetentionTime: 60 * 24, // 24 heures en minutes
+                },
+              },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\//,
+            method: 'PATCH',
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'supabase-mutations-queue',
+                options: {
+                  maxRetentionTime: 60 * 24,
+                },
+              },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
             handler: 'StaleWhileRevalidate',
@@ -70,6 +100,10 @@ export default defineConfig({
             },
           },
         ],
+      },
+      // AXE 4 — SW debugging en mode dev
+      devOptions: {
+        enabled: true,
       },
     }),
   ],
