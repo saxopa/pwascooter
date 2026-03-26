@@ -217,6 +217,29 @@ export default function HostDashboard() {
         setCompletingId(null)
     }
 
+    if (profile?.host_status === 'pending') {
+        return (
+            <div style={{ minHeight: 'var(--app-viewport-height)', background: 'var(--color-bg-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+                <ShieldCheck size={56} color="var(--color-warning)" style={{ marginBottom: 20 }} />
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 12, color: 'white' }}>Vérification en cours</h2>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: 24, maxWidth: 400 }}>
+                    Pour garantir la sécurité de notre plateforme, l'accès à l'Espace Pro nécessite une validation manuelle. 
+                    Veuillez envoyer votre <strong>Kbis</strong> ou preuve d'enregistrement professionnel par email à <a href="mailto:pro@scootsafe.com" style={{ color: 'var(--color-primary-light)', textDecoration: 'none', fontWeight: 600 }}>pro@scootsafe.com</a>.
+                </p>
+                <div style={{ padding: '12px 16px', background: 'rgba(253,203,110,0.1)', border: '1px solid rgba(253,203,110,0.2)', borderRadius: 'var(--radius-md)', color: 'var(--color-warning)', fontSize: '0.85rem' }}>
+                    Nous activerons votre compte d'hôte sous 24 à 48 heures après réception.
+                </div>
+                <button
+                    onClick={() => navigate('/map')}
+                    className="btn-primary"
+                    style={{ marginTop: 30 }}
+                >
+                    Retour à la carte
+                </button>
+            </div>
+        )
+    }
+
     if (showForm || editingSpace) {
         return (
             <HostSpaceForm
@@ -276,20 +299,22 @@ export default function HostDashboard() {
                         <LegalLinks compact align="left" />
                     </div>
                 </div>
-                <button
-                    onClick={() => setShowForm(true)}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '8px 14px',
-                        background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
-                        border: 'none', borderRadius: 'var(--radius-md)',
-                        color: 'white', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
-                        boxShadow: '0 4px 15px rgba(108,92,231,0.4)',
-                    }}
-                >
-                    <Plus size={15} />
-                    Ajouter
-                </button>
+                {spaces.length === 0 && (
+                    <button
+                        onClick={() => setShowForm(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '8px 14px',
+                            background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
+                            border: 'none', borderRadius: 'var(--radius-md)',
+                            color: 'white', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                            boxShadow: '0 4px 15px rgba(108,92,231,0.4)',
+                        }}
+                    >
+                        <Plus size={15} />
+                        Ajouter
+                    </button>
+                )}
             </div>
 
             {/* Content */}

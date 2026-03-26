@@ -160,6 +160,7 @@ export type Database = {
                     company_name: string | null
                     created_at: string | null
                     email: string
+                    host_status: string | null
                     id: string
                     nom: string
                     role: string | null
@@ -168,6 +169,7 @@ export type Database = {
                     company_name?: string | null
                     created_at?: string | null
                     email: string
+                    host_status?: string | null
                     id: string
                     nom: string
                     role?: string
@@ -176,6 +178,7 @@ export type Database = {
                     company_name?: string | null
                     created_at?: string | null
                     email?: string
+                    host_status?: string | null
                     id?: string
                     nom?: string
                     role?: string

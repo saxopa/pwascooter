@@ -7,6 +7,7 @@ interface Profile {
     nom: string
     email: string
     role: 'user' | 'host' | 'admin' | null
+    host_status: string | null
     company_name: string | null
     created_at: string | null
 }
