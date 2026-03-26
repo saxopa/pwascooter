@@ -8,6 +8,7 @@ const MapView = lazy(() => import('./components/MapView'))
 const BookingsList = lazy(() => import('./components/BookingsList'))
 const HostDashboard = lazy(() => import('./components/HostDashboard'))
 const TermsPage = lazy(() => import('./components/TermsPage'))
+const BecomeHost = lazy(() => import('./components/BecomeHost'))
 
 function AppShellLoader() {
   return (
@@ -34,6 +35,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/cgu" element={<TermsPage />} />
+        <Route path="/devenir-hote" element={<BecomeHost />} />
         <Route path="/map" element={<MapView />} />
         <Route path="/bookings" element={<BookingsList />} />
         <Route

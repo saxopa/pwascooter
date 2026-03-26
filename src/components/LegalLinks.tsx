@@ -32,6 +32,15 @@ export default function LegalLinks({
         CGU
       </Link>
       <Link
+        to="/devenir-hote"
+        style={{
+          color: 'var(--color-text-muted)',
+          textDecoration: 'none',
+        }}
+      >
+        Devenir Hôte
+      </Link>
+      <Link
         to="/map"
         style={{
           color: 'var(--color-text-muted)',

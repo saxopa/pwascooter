@@ -205,6 +205,20 @@ export default function LandingPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               className="glass-card"
+              onClick={() => navigate('/devenir-hote')}
+              style={{
+                padding: '10px 16px',
+                background: 'rgba(26,26,46,0.58)',
+                color: 'var(--color-primary-light)',
+                borderRadius: '999px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Devenir Hôte
+            </button>
+            <button
+              className="glass-card"
               onClick={() => navigate('/map')}
               style={{
                 padding: '10px 16px',
@@ -516,6 +530,19 @@ export default function LandingPage() {
             <button className="btn-primary" onClick={() => navigate('/map')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               Voir la carte maintenant
               <ArrowRight size={17} />
+            </button>
+            <button
+              className="glass-card"
+              onClick={() => navigate('/devenir-hote')}
+              style={{
+                padding: '14px 18px',
+                background: 'rgba(255,255,255,0.06)',
+                color: 'var(--color-primary-light)',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              Devenir Hôte
             </button>
             <button
               className="glass-card"
