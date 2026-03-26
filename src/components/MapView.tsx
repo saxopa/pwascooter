@@ -34,8 +34,13 @@ import { useHostProfile } from '../hooks/useHostProfile'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
 import { sendBookingNotification } from '../lib/bookingNotifications'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import CheckoutForm from './CheckoutForm'
 
 type Host = Tables<'hosts'>
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY as string)
 
 
 // ────────────────────── Toulouse Center ──────────────────────
@@ -276,6 +281,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
     const [confirmedPickupCode, setConfirmedPickupCode] = useState<string | null>(null)
     const [confirmedStartTime, setConfirmedStartTime] = useState<string | null>(null)
     const [confirmedEndTime, setConfirmedEndTime] = useState<string | null>(null)
+    const [clientSecret, setClientSecret] = useState<string | null>(null)
 
     const totalPrice = Number(host.price_per_hour) * selectedDuration
     const isSelfBooking = !!user && host.owner_id === user.id
@@ -325,43 +331,62 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 return
             }
 
-            // 5. Succès !
+            // 5. Initialiser Stripe Payment Intent
             setConfirmedBookingId(rpcData.booking_id ?? null)
-
-            if (rpcData.booking_id) {
-                const { data: bookingData } = await supabase
-                    .from('bookings')
-                    .select('id, pickup_code')
-                    .eq('id', rpcData.booking_id)
-                    .single()
-
-                const pickupCode = resolveBookingPickupCode(bookingData?.pickup_code, rpcData.booking_id)
-                setConfirmedPickupCode(pickupCode)
-                void sendBookingNotification('booking_created', rpcData.booking_id)
-
-                // Stockage local de la réservation (sauvegarde hors ligne/cache)
-                try {
-                    const localBookingData = {
-                        bookingId: rpcData.booking_id,
-                        pickupCode: pickupCode,
-                        hostName: host.name,
-                        hostLat: host.latitude,
-                        hostLng: host.longitude,
-                        startTime: startTime.toISOString(),
-                        endTime: endTime.toISOString(),
-                        totalPrice: Number(totalPrice.toFixed(2))
-                    }
-                    localStorage.setItem('scootsafe_latest_booking', JSON.stringify(localBookingData))
-                } catch (err) {
-                    console.error('Erreur sauvegarde locale', err)
-                }
+            
+            const amountInCents = Math.round(totalPrice * 100)
+            const { data: intentData, error: intentError } = await supabase.functions.invoke('create-payment-intent', {
+                body: { amount: amountInCents }
+            })
+            
+            if (intentError || !intentData?.clientSecret) {
+                throw new Error('Erreur lors de l’initialisation du paiement sécurisé.')
             }
-            setSuccess(true)
+
+            setClientSecret(intentData.clientSecret)
         } catch (err: unknown) {
             console.error(err)
             setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement.')
         } finally {
             setIsPaying(false)
+        }
+    }
+
+    async function handlePaymentSuccess() {
+        if (!confirmedBookingId) return
+
+        try {
+            const { data: bookingData } = await supabase
+                .from('bookings')
+                .select('id, pickup_code')
+                .eq('id', confirmedBookingId)
+                .single()
+
+            const pickupCode = resolveBookingPickupCode(bookingData?.pickup_code, confirmedBookingId)
+            setConfirmedPickupCode(pickupCode)
+            void sendBookingNotification('booking_created', confirmedBookingId)
+
+            // Stockage local de la réservation (sauvegarde hors ligne/cache)
+            try {
+                const localBookingData = {
+                    bookingId: confirmedBookingId,
+                    pickupCode: pickupCode,
+                    hostName: host.name,
+                    hostLat: host.latitude,
+                    hostLng: host.longitude,
+                    startTime: confirmedStartTime,
+                    endTime: confirmedEndTime,
+                    totalPrice: Number(totalPrice.toFixed(2))
+                }
+                localStorage.setItem('scootsafe_latest_booking', JSON.stringify(localBookingData))
+            } catch (err) {
+                console.error('Erreur sauvegarde locale', err)
+            }
+            
+            setSuccess(true)
+        } catch (err) {
+            console.error(err)
+            setError('Erreur lors de la récupération du code de réservation.')
         }
     }
 
@@ -378,6 +403,39 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 minute: '2-digit',
             })}`
             : null
+
+    if (clientSecret && confirmedBookingId && !success) {
+        return (
+            <>
+                <div className="overlay-enter" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }} onClick={onClose} />
+                <div
+                    className="bottom-sheet-enter glass-card"
+                    style={{
+                        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001,
+                        padding: '24px 20px', paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+                        borderTopLeftRadius: 'var(--radius-xl)', borderTopRightRadius: 'var(--radius-xl)',
+                        borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+                    }}
+                >
+                    <button
+                        onClick={onClose}
+                        style={{
+                            position: 'absolute', top: 16, right: 16,
+                            background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%',
+                            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', color: 'var(--color-text-secondary)', zIndex: 10
+                        }}
+                    >
+                        <X size={18} />
+                    </button>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 16 }}>Paiement sécurisé</h2>
+                    <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#6C5CE7', colorBackground: '#1a1a2e', colorText: '#ffffff', colorDanger: '#ff6b6b' } } }}>
+                        <CheckoutForm bookingId={confirmedBookingId} onSuccess={handlePaymentSuccess} />
+                    </Elements>
+                </div>
+            </>
+        )
+    }
 
     // Si confirmation réussie, on affiche un message de succès
     if (success) {
