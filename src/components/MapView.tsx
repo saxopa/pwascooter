@@ -40,9 +40,16 @@ import CheckoutForm from './CheckoutForm'
 
 type Host = Tables<'hosts'>
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY as string)
-
-
+// Chargement lazy de Stripe — uniquement quand le paiement est requis
+let stripePromiseCache: ReturnType<typeof loadStripe> | null = null
+function getStripePromise() {
+    const key = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
+    if (!key || key.trim() === '') return null
+    if (!stripePromiseCache) {
+        stripePromiseCache = loadStripe(key)
+    }
+    return stripePromiseCache
+}
 // ────────────────────── Toulouse Center ──────────────────────
 const TOULOUSE_CENTER: [number, number] = [43.6047, 1.4442]
 const DEFAULT_ZOOM = 14
@@ -457,7 +464,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                             Si vous déployez sur Vercel/Netlify/Vite, veuillez l'ajouter dans les variables de déploiement.
                         </div>
                     ) : (
-                        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#6C5CE7', colorBackground: '#1a1a2e', colorText: '#ffffff', colorDanger: '#ff6b6b' } } }}>
+                        <Elements stripe={getStripePromise()} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#6C5CE7', colorBackground: '#1a1a2e', colorText: '#ffffff', colorDanger: '#ff6b6b' } } }}>
                             <CheckoutForm bookingId={confirmedBookingId} onSuccess={handlePaymentSuccess} />
                         </Elements>
                     )}

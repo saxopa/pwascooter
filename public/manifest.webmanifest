@@ -1,19 +1,31 @@
 {
-  "name": "ScootSafe",
+  "id": "/pwascooter/",
+  "name": "ScootSafe \u2014 Parking trottinette",
   "short_name": "ScootSafe",
-  "description": "Reservez un point securise pour votre trottinette et gerez depot, validation et retrait depuis votre mobile.",
+  "description": "R\u00e9servez un parking s\u00e9curis\u00e9 pour votre trottinette \u00e9lectrique \u00e0 Toulouse. Validation par QR code, paiement s\u00e9curis\u00e9.",
   "start_url": "/pwascooter/#/",
   "scope": "/pwascooter/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#0f111a",
   "theme_color": "#0f111a",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["travel", "navigation", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/pwascooter/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/pwascooter/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/pwascooter/icon-512.png",
@@ -26,6 +38,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mes r\u00e9servations",
+      "short_name": "R\u00e9servations",
+      "description": "Voir mes r\u00e9servations en cours",
+      "url": "/pwascooter/#/bookings",
+      "icons": [{ "src": "/pwascooter/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Trouver un parking",
+      "short_name": "Carte",
+      "description": "Ouvrir la carte des parkings",
+      "url": "/pwascooter/#/map",
+      "icons": [{ "src": "/pwascooter/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

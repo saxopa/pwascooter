@@ -202,3 +202,53 @@ body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ---------- PWA Touch & Offline ---------- */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Bandeau offline affiché automatiquement */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 10px 16px;
+  background: rgba(253, 203, 110, 0.95);
+  color: #1a1a2e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.offline-banner.visible {
+  transform: translateY(0);
+}
+
+/* Bouton d'installation PWA */
+.pwa-install-banner {
+  position: fixed;
+  bottom: max(90px, calc(env(safe-area-inset-bottom) + 80px));
+  left: 14px;
+  right: 14px;
+  z-index: 600;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(108,92,231,0.95), rgba(0,206,201,0.9));
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
