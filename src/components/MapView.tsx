@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MapContainer,
@@ -31,6 +31,7 @@ import type { Tables } from '../types/supabase'
 import AuthModal from './AuthModal'
 import RoleSelectModal from './RoleSelectModal'
 import { useHostProfile } from '../hooks/useHostProfile'
+import { useHosts } from '../contexts/HostsContext'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
 import { sendBookingNotification } from '../lib/bookingNotifications'
@@ -262,6 +263,63 @@ function FlyToUser({
     return null
 }
 
+// ────────────────────── Isolated User Location Marker ────────
+// FIX A: GPS updates are completely isolated here — they never
+// trigger a re-render of the parent MapView or host markers.
+function UserLocationMarker() {
+    const [position, setPosition] = useState<[number, number] | null>(null)
+
+    useEffect(() => {
+        if (!navigator.geolocation) return
+        let lastUpdate = 0
+        const MIN_UPDATE_INTERVAL = 3000
+
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const now = Date.now()
+                if (now - lastUpdate >= MIN_UPDATE_INTERVAL) {
+                    setPosition([pos.coords.latitude, pos.coords.longitude])
+                    lastUpdate = now
+                }
+            },
+            () => { /* ignore */ },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        )
+        return () => navigator.geolocation.clearWatch(watchId)
+    }, [])
+
+    if (!position) return null
+    return <Marker position={position} icon={getUserMarkerIcon()} zIndexOffset={100} />
+}
+
+// ────────────────────── Memoized Host Marker ─────────────────
+// FIX D: eventHandlers are created once per host, not on every render.
+const HostMarkerMemo = memo(function HostMarkerMemo({
+    host,
+    onSelect,
+}: {
+    host: Host
+    onSelect: (host: Host) => void
+}) {
+    const handlers = useMemo(() => ({
+        click: () => onSelect(host),
+    }), [host, onSelect])
+
+    return (
+        <Marker
+            position={[host.latitude, host.longitude]}
+            icon={createMarkerIcon(host.has_charging ?? false)}
+            eventHandlers={handlers}
+        >
+            <Popup>
+                <strong>{host.name}</strong>
+                <br />
+                {Number(host.price_per_hour).toFixed(2)} €/h
+            </Popup>
+        </Marker>
+    )
+})
+
 // ────────────────────── Map click close ──────────────────────
 function MapClickClose({ onClose }: { onClose: () => void }) {
     useMapEvents({
@@ -287,6 +345,11 @@ const DURATIONS = [
 ]
 
 function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
+    const isMountedRef = useRef(true)
+    useEffect(() => {
+        return () => { isMountedRef.current = false }
+    }, [])
+
     const [selectedDuration, setSelectedDuration] = useState(1) // par défaut 1h
     const [isPaying, setIsPaying] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -360,9 +423,11 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             setClientSecret(intentData.clientSecret)
         } catch (err: unknown) {
             console.error(err)
-            setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement.')
+            if (isMountedRef.current) {
+                setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement.')
+            }
         } finally {
-            setIsPaying(false)
+            if (isMountedRef.current) setIsPaying(false)
         }
     }
 
@@ -384,6 +449,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             if (error) throw error
 
             const pickupCode = resolveBookingPickupCode(bookingData?.pickup_code, confirmedBookingId)
+            if (!isMountedRef.current) return
             setConfirmedPickupCode(pickupCode)
             void sendBookingNotification('booking_created', confirmedBookingId)
 
@@ -410,11 +476,13 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             
             // CAS B: Déplace la génération QR pour libérer le main thread de Safari
             setTimeout(() => {
-                setSuccess(true)
+                if (isMountedRef.current) setSuccess(true)
             }, 0)
         } catch (err) {
             console.error(err)
-            setError('Délai dépassé ou erreur réseau lors de la récupération du code.')
+            if (isMountedRef.current) {
+                setError('Délai dépassé ou erreur réseau lors de la récupération du code.')
+            }
         }
     }
 
@@ -723,7 +791,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 export default function MapView() {
     const navigate = useNavigate()
     const { profile, isHost, refreshProfile, loading: profileLoading } = useHostProfile()
-    const [hosts, setHosts] = useState<Host[]>([])
+    const { hosts, loading: hostsLoading, error: hostsError } = useHosts()
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
     const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null)
     const [loading, setLoading] = useState(true)
@@ -732,34 +800,31 @@ export default function MapView() {
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
     const [locateRequest, setLocateRequest] = useState(0)
-    const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
-
-    const handleLocationUpdate = useCallback((pos: [number, number]) => {
-        setUserLocation(pos)
-    }, [])
 
     const needsRoleSelect = !!user && !profileLoading && !profile?.role
 
-    const filteredHosts = hosts.filter(h =>
+    // FIX D: memoize filteredHosts to avoid recalculation on every render
+    const filteredHosts = useMemo(() => hosts.filter(h =>
         (!filterCharging || (h.has_charging === true)) &&
         (!filterCheap || (Number(h.price_per_hour) < 2))
-    )
+    ), [hosts, filterCharging, filterCheap])
 
-    // Fetch Session & Hosts
+    // Stable callback for host selection (used by memoized markers)
+    const handleSelectHost = useCallback((host: Host) => {
+        setSelectedHost(host)
+    }, [])
+
+    // Fetch Session (hosts come from HostsContext now)
     useEffect(() => {
         let isMounted = true
 
-        // 1. Listener auth stable, créé UNE FOIS
         const { data: authListener } = supabase.auth.onAuthStateChange(
             (_event, session) => {
                 if (isMounted) setUser(session?.user ?? null)
             }
         )
 
-        // 2. Chargement initial des données
-        async function loadInitialData() {
-            setLoading(true)
-
+        async function loadSession() {
             const { data: authData } = await supabase.auth.getSession()
             if (isMounted) setUser(authData.session?.user ?? null)
 
@@ -767,24 +832,25 @@ export default function MapView() {
                 await supabase.rpc('expire_pending_bookings')
             }
 
-            const { data: hostsData, error: err } = await supabase
-                .from('hosts')
-                .select('*')
-
-            if (err && isMounted) setError(err.message)
-            else if (isMounted) setHosts(hostsData ?? [])
-
             if (isMounted) setLoading(false)
         }
 
-        void loadInitialData()
+        void loadSession()
 
-        // 3. Cleanup propre : listener + flag isMounted
         return () => {
             isMounted = false
             authListener.subscription.unsubscribe()
         }
     }, [])
+
+    // Sync hosts loading/error from context
+    useEffect(() => {
+        if (hostsError) setError(hostsError)
+    }, [hostsError])
+
+    useEffect(() => {
+        if (!hostsLoading && !loading) setLoading(false)
+    }, [hostsLoading, loading])
 
     async function handleSignOut() {
         await supabase.auth.signOut()
@@ -832,14 +898,13 @@ export default function MapView() {
                 <FlyToUser
                     locateRequest={locateRequest}
                     hosts={filteredHosts}
-                    onNearestFound={setSelectedHost}
-                    onLocationUpdate={handleLocationUpdate}
+                    onNearestFound={handleSelectHost}
+                    onLocationUpdate={() => { /* GPS tracking is now in UserLocationMarker */ }}
                 />
                 <MapClickClose onClose={() => setSelectedHost(null)} />
 
-                {userLocation && (
-                    <Marker position={userLocation} icon={getUserMarkerIcon()} zIndexOffset={100} />
-                )}
+                {/* FIX A: GPS isolated — only this sub-component re-renders on position change */}
+                <UserLocationMarker />
 
                 <FlyToMarker
                     position={
@@ -849,21 +914,13 @@ export default function MapView() {
                     }
                 />
 
+                {/* FIX D: Each marker is memoized — eventHandlers are stable */}
                 {filteredHosts.map((host) => (
-                    <Marker
+                    <HostMarkerMemo
                         key={host.id}
-                        position={[host.latitude, host.longitude]}
-                        icon={createMarkerIcon(host.has_charging ?? false)}
-                        eventHandlers={{
-                            click: () => setSelectedHost(host),
-                        }}
-                    >
-                        <Popup>
-                            <strong>{host.name}</strong>
-                            <br />
-                            {Number(host.price_per_hour).toFixed(2)} €/h
-                        </Popup>
-                    </Marker>
+                        host={host}
+                        onSelect={handleSelectHost}
+                    />
                 ))}
             </MapContainer>
 

@@ -5,15 +5,18 @@ import './index.css'
 import App from './App.tsx'
 import PWAManager from './components/PWAManager'
 import { HostProfileProvider } from './contexts/HostProfileContext'
+import { HostsProvider } from './contexts/HostsContext'
 import { registerSW } from 'virtual:pwa-register'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PWAManager />
     <HostProfileProvider>
-      <HashRouter>
-        <App />
-      </HashRouter>
+      <HostsProvider>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </HostsProvider>
     </HostProfileProvider>
   </StrictMode>,
 )
