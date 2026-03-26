@@ -412,6 +412,9 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             : null
 
     if (clientSecret && confirmedBookingId && !success) {
+        const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
+        const isKeyMissing = !stripeKey || stripeKey.trim() === ''
+
         return (
             <>
                 <div className="overlay-enter" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }} onClick={onClose} />
@@ -436,9 +439,18 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                         <X size={18} />
                     </button>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 16 }}>Paiement sécurisé</h2>
-                    <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#6C5CE7', colorBackground: '#1a1a2e', colorText: '#ffffff', colorDanger: '#ff6b6b' } } }}>
-                        <CheckoutForm bookingId={confirmedBookingId} onSuccess={handlePaymentSuccess} />
-                    </Elements>
+                    
+                    {isKeyMissing ? (
+                        <div style={{ color: '#ff6b6b', background: 'rgba(255,107,107,0.1)', padding: 16, borderRadius: 8, fontSize: '0.9rem', marginBottom: 24 }}>
+                            <strong>Erreur Critique</strong><br/>
+                            La clé VITE_STRIPE_PUBLIC_KEY est introuvable.<br/>
+                            Si vous déployez sur Vercel/Netlify/Vite, veuillez l'ajouter dans les variables de déploiement.
+                        </div>
+                    ) : (
+                        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#6C5CE7', colorBackground: '#1a1a2e', colorText: '#ffffff', colorDanger: '#ff6b6b' } } }}>
+                            <CheckoutForm bookingId={confirmedBookingId} onSuccess={handlePaymentSuccess} />
+                        </Elements>
+                    )}
                 </div>
             </>
         )

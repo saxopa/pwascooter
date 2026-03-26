@@ -18,6 +18,7 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
 
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isStripeReady, setIsStripeReady] = useState(false)
 
   const handlePaymentClick = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault()
@@ -71,10 +72,15 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
   }
 
   return (
-    <div style={{ width: '100%', textAlign: 'left' }}>
-      <PaymentElement id="payment-element" options={{ layout: 'tabs' }} />
+    <div style={{ width: '100%', textAlign: 'left', minHeight: 200, position: 'relative' }}>
+      {!isStripeReady && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', zIndex: 10 }}>
+            <Loader2 className="animate-spin" size={24} style={{ color: 'var(--color-primary-light)' }} />
+        </div>
+      )}
+      <PaymentElement id="payment-element" options={{ layout: 'tabs' }} onReady={() => setIsStripeReady(true)} />
       <button
-        disabled={isLoading || !stripe || !elements}
+        disabled={isLoading || !stripe || !elements || !isStripeReady}
         onClick={handlePaymentClick}
         className="btn-primary"
         style={{ width: '100%', marginTop: 24, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
