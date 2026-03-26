@@ -73,7 +73,7 @@ export default function BookingsList() {
     const [cancellingId, setCancellingId] = useState<string | null>(null)
     const [actionMessage, setActionMessage] = useState<string | null>(null)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (signal?: AbortSignal) => {
         setLoading(true)
 
         const { data: authData } = await supabase.auth.getSession()
@@ -87,10 +87,12 @@ export default function BookingsList() {
 
         await supabase.rpc('expire_pending_bookings')
 
-        const { data, error: err } = await supabase
+        const query = supabase
             .from('bookings')
             .select('*, hosts(name, latitude, longitude)')
             .eq('user_id', currentUser.id)
+
+        const { data, error: err } = await (signal ? query.abortSignal(signal) : query)
             .order('created_at', { ascending: false })
 
         if (err) {
@@ -103,9 +105,15 @@ export default function BookingsList() {
     }, [])
 
     useEffect(() => {
+        const controller = new AbortController()
+
         queueMicrotask(() => {
-            void load()
+            if (!controller.signal.aborted) {
+                void load(controller.signal)
+            }
         })
+
+        return () => controller.abort()
     }, [load])
 
     async function cancelBooking(bookingId: string) {

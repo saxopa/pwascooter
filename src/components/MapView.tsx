@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     MapContainer,
@@ -388,21 +388,25 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             void sendBookingNotification('booking_created', confirmedBookingId)
 
             // Stockage local de la réservation (sauvegarde hors ligne/cache)
-            try {
-                const localBookingData = {
-                    bookingId: confirmedBookingId,
-                    pickupCode: pickupCode,
-                    hostName: host.name,
-                    hostLat: host.latitude,
-                    hostLng: host.longitude,
-                    startTime: confirmedStartTime,
-                    endTime: confirmedEndTime,
-                    totalPrice: Number(totalPrice.toFixed(2))
+            const saveToLocalStorage = (data: object) => {
+                try {
+                    localStorage.setItem('scootsafe_latest_booking', JSON.stringify(data))
+                } catch {
+                    // Silencieux — la sauvegarde locale est optionnelle
+                    // Ne jamais laisser remonter cette erreur dans le flow paiement
                 }
-                localStorage.setItem('scootsafe_latest_booking', JSON.stringify(localBookingData))
-            } catch (err) {
-                console.error('Erreur sauvegarde locale', err)
             }
+
+            saveToLocalStorage({
+                bookingId: confirmedBookingId,
+                pickupCode: pickupCode,
+                hostName: host.name,
+                hostLat: host.latitude,
+                hostLng: host.longitude,
+                startTime: confirmedStartTime,
+                endTime: confirmedEndTime,
+                totalPrice: Number(totalPrice.toFixed(2))
+            })
             
             // CAS B: Déplace la génération QR pour libérer le main thread de Safari
             setTimeout(() => {
@@ -730,6 +734,10 @@ export default function MapView() {
     const [locateRequest, setLocateRequest] = useState(0)
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
 
+    const handleLocationUpdate = useCallback((pos: [number, number]) => {
+        setUserLocation(pos)
+    }, [])
+
     const needsRoleSelect = !!user && !profileLoading && !profile?.role
 
     const filteredHosts = hosts.filter(h =>
@@ -740,55 +748,41 @@ export default function MapView() {
     // Fetch Session & Hosts
     useEffect(() => {
         let isMounted = true
-        let authSubscription: { unsubscribe: () => void } | null = null
 
+        // 1. Listener auth stable, créé UNE FOIS
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+            (_event, session) => {
+                if (isMounted) setUser(session?.user ?? null)
+            }
+        )
+
+        // 2. Chargement initial des données
         async function loadInitialData() {
             setLoading(true)
 
-            // 1. Get Session
             const { data: authData } = await supabase.auth.getSession()
-            if (isMounted) {
-                setUser(authData.session?.user || null)
-            }
+            if (isMounted) setUser(authData.session?.user ?? null)
 
             if (authData.session?.user) {
                 await supabase.rpc('expire_pending_bookings')
             }
 
-            // Listen for auth changes
-            const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-                if (isMounted) {
-                    setUser(session?.user || null)
-                }
-            })
-            authSubscription = authListener.subscription
-
-            // 2. Fetch hosts
             const { data: hostsData, error: err } = await supabase
                 .from('hosts')
                 .select('*')
 
-            if (err) {
-                if (isMounted) {
-                    setError(err.message)
-                }
-                console.error('Supabase error:', err)
-            } else {
-                if (isMounted) {
-                    setHosts(hostsData ?? [])
-                }
-            }
+            if (err && isMounted) setError(err.message)
+            else if (isMounted) setHosts(hostsData ?? [])
 
-            if (isMounted) {
-                setLoading(false)
-            }
+            if (isMounted) setLoading(false)
         }
 
-        loadInitialData()
+        void loadInitialData()
 
+        // 3. Cleanup propre : listener + flag isMounted
         return () => {
             isMounted = false
-            authSubscription?.unsubscribe()
+            authListener.subscription.unsubscribe()
         }
     }, [])
 
@@ -839,7 +833,7 @@ export default function MapView() {
                     locateRequest={locateRequest}
                     hosts={filteredHosts}
                     onNearestFound={setSelectedHost}
-                    onLocationUpdate={setUserLocation}
+                    onLocationUpdate={handleLocationUpdate}
                 />
                 <MapClickClose onClose={() => setSelectedHost(null)} />
 

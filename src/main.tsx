@@ -4,14 +4,17 @@ import { HashRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import PWAManager from './components/PWAManager'
+import { HostProfileProvider } from './contexts/HostProfileContext'
 import { registerSW } from 'virtual:pwa-register'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PWAManager />
-    <HashRouter>
-      <App />
-    </HashRouter>
+    <HostProfileProvider>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </HostProfileProvider>
   </StrictMode>,
 )
 

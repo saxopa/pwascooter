@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState, useRef, type ReactNode } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -119,7 +119,8 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
       isMounted = false
       window.clearTimeout(fallbackTimer)
     }
-  }, [location.pathname, navigate, onReady])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return null
 }
@@ -162,7 +163,10 @@ function App() {
     }
   }, [])
 
+  const hasCalledReady = useRef(false)
   const handleReady = useCallback(() => {
+    if (hasCalledReady.current) return
+    hasCalledReady.current = true
     setReady(true)
   }, [])
 

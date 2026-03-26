@@ -63,7 +63,7 @@ export default function HostDashboard() {
     const [showScanner, setShowScanner] = useState(false)
     const [completingId, setCompletingId] = useState<string | null>(null)
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (signal?: AbortSignal) => {
         if (!user) return
         setLoading(true)
 
@@ -95,10 +95,12 @@ export default function HostDashboard() {
             setBookingsCount(bookings.length)
             setRevenue(bookings.reduce((sum, b) => sum + Number(b.total_price), 0))
 
-            const { data: hostBookingsData } = await supabase
+            const query = supabase
                 .from('bookings')
                 .select('*')
                 .in('host_id', spaceIds)
+
+            const { data: hostBookingsData } = await (signal ? query.abortSignal(signal) : query)
                 .order('created_at', { ascending: false })
 
             setRecentBookings(
@@ -116,9 +118,15 @@ export default function HostDashboard() {
 
     useEffect(() => {
         if (!user) return
+        const controller = new AbortController()
+
         queueMicrotask(() => {
-            void loadData()
+            if (!controller.signal.aborted) {
+                void loadData(controller.signal)
+            }
         })
+
+        return () => controller.abort()
     }, [user, loadData])
 
     async function toggleActive(space: Host) {
