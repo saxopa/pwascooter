@@ -27,31 +27,39 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
     setIsLoading(true)
     setMessage(null)
 
-    // Confirm the payment
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required', // Avoid full page reload in PWA
-    })
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.href, // Requis par Stripe même si redirect='if_required'
+        },
+        redirect: 'if_required', // Avoid full page reload in PWA
+      })
 
-    if (error) {
-      setMessage(error.message ?? 'Erreur de paiement.')
-      setIsLoading(false)
-    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-      // Payment successful, update booking status to active
-      const { error: dbError } = await supabase
-        .from('bookings')
-        .update({ status: 'active' })
-        .eq('id', bookingId)
-
-      if (dbError) {
-        console.error('Erreur DB après paiement:', dbError)
-        setMessage('Paiement réussi mais erreur lors de la confirmation en base.')
+      if (error) {
+        setMessage(error.message ?? 'Erreur de paiement.')
         setIsLoading(false)
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // Payment successful, update booking status to active
+        const { error: dbError } = await supabase
+          .from('bookings')
+          .update({ status: 'active' })
+          .eq('id', bookingId)
+
+        if (dbError) {
+          console.error('Erreur DB après paiement:', dbError)
+          setMessage('Paiement réussi mais erreur lors de la confirmation en base.')
+          setIsLoading(false)
+        } else {
+          onSuccess()
+        }
       } else {
-        onSuccess()
+        setMessage('Paiement en cours de traitement...')
+        setIsLoading(false)
       }
-    } else {
-      setMessage('Paiement en cours de traitement...')
+    } catch (err: unknown) {
+      console.error(err)
+      setMessage(err instanceof Error ? err.message : 'Erreur inattendue.')
       setIsLoading(false)
     }
   }
