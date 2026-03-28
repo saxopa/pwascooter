@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState, useRef, type ReactNod
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabaseClient'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useHostProfile } from './contexts/HostProfileContext'
 
 const LandingPage = lazy(() => import('./components/LandingPage'))
 const MapView = lazy(() => import('./components/MapView'))
@@ -54,7 +55,7 @@ function AppRoutes() {
 
 function AppBootstrap({ onReady }: { onReady: () => void }) {
   const navigate = useNavigate()
-  const location = useLocation()
+  const { loading: profileLoading } = useHostProfile()
 
   useEffect(() => {
     let isMounted = true
@@ -91,36 +92,32 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
             }
           }
         }
-
-        const { data } = await supabase.auth.getSession()
-        const hasSession = !!data.session?.user
-
-        if (hasSession && location.pathname === '/') {
-          navigate('/map', { replace: true })
-        }
       } catch (error) {
         console.error('App bootstrap failed:', error)
-      } finally {
-        if (isMounted) {
-          onReady()
-        }
       }
     }
 
     void bootstrapSession()
 
-    const fallbackTimer = window.setTimeout(() => {
-      if (isMounted) {
-        onReady()
-      }
-    }, 4000)
-
     return () => {
       isMounted = false
+    }
+  }, [navigate])
+
+  useEffect(() => {
+    if (!profileLoading) {
+      onReady()
+      return
+    }
+    
+    const fallbackTimer = window.setTimeout(() => {
+      onReady()
+    }, 1500)
+
+    return () => {
       window.clearTimeout(fallbackTimer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [profileLoading, onReady])
 
   return null
 }

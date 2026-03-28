@@ -351,23 +351,38 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         setError(null)
 
         try {
-            // 1. Simuler le paiement Stripe (2 secondes — sera remplacé par vraie intégration)
-            await new Promise((resolve) => setTimeout(resolve, 2000))
-
-            // 2. Préparer les dates
+            // 1. Préparer les dates
             const startTime = new Date()
             const endTime = new Date()
             endTime.setHours(endTime.getHours() + selectedDuration)
             setConfirmedStartTime(startTime.toISOString())
             setConfirmedEndTime(endTime.toISOString())
 
-            // 3. Appel RPC anti-surbooking
-            const { data: rpcData, error: rpcError } = await supabase.rpc('book_parking_spot', {
+            // 2. Initialiser Stripe Payment Intent AVANT de créer la réservation
+            const amountInCents = Math.round(totalPrice * 100)
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+            const { data: intentData, error: intentError } = await supabase.functions.invoke('create-payment-intent', {
+                body: { amount: amountInCents },
+                signal: controller.signal
+            })
+
+            clearTimeout(timeoutId)
+
+            if (intentError || !intentData?.clientSecret) {
+                throw new Error('Erreur lors de l’initialisation du paiement sécurisé (Stripe).')
+            }
+
+            // 3. Appel RPC anti-surbooking seulement si Stripe est OK
+            const { data: rawRpcData, error: rpcError } = await supabase.rpc('book_parking_spot', {
                 p_host_id: host.id,
                 p_start_time: startTime.toISOString(),
                 p_end_time: endTime.toISOString(),
                 p_total_price: Number(totalPrice.toFixed(2)),
             })
+
+            const rpcData = rawRpcData as { success: boolean; error?: string; booking_id?: string } | null
 
             if (rpcError) throw rpcError
 
@@ -389,18 +404,8 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 return
             }
 
-            // 5. Initialiser Stripe Payment Intent
+            // 5. Enregistrer le succès initial
             setConfirmedBookingId(rpcData.booking_id ?? null)
-            
-            const amountInCents = Math.round(totalPrice * 100)
-            const { data: intentData, error: intentError } = await supabase.functions.invoke('create-payment-intent', {
-                body: { amount: amountInCents }
-            })
-            
-            if (intentError || !intentData?.clientSecret) {
-                throw new Error('Erreur lors de l’initialisation du paiement sécurisé.')
-            }
-
             setClientSecret(intentData.clientSecret)
         } catch (err: unknown) {
             console.error(err)

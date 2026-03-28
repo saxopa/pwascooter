@@ -22,8 +22,18 @@ export default function PWAManager() {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
     setIsIOS(isIOSDevice)
 
+    // Helper pour capturer SecurityError sur iOS Private Browsing
+    const safeStorage = {
+      get: (key: string): string | null => {
+        try { return localStorage.getItem(key) } catch { return null }
+      },
+      set: (key: string, value: string): void => {
+        try { localStorage.setItem(key, value) } catch { /* silent */ }
+      }
+    }
+
     // Vérifie si déjà installé ou si banner déjà refusé
-    const dismissedAt = localStorage.getItem('scootsafe_install_dismissed')
+    const dismissedAt = safeStorage.get('scootsafe_install_dismissed')
     const alreadyDismissed = dismissedAt
       ? Date.now() - parseInt(dismissedAt, 10) < 7 * 24 * 60 * 60 * 1000 // 7 jours
       : false
@@ -82,7 +92,7 @@ export default function PWAManager() {
   }
 
   function handleDismiss() {
-    localStorage.setItem('scootsafe_install_dismissed', Date.now().toString())
+    try { localStorage.setItem('scootsafe_install_dismissed', Date.now().toString()) } catch { /* silent */ }
     setShowInstallBanner(false)
     setIsDismissed(true)
   }

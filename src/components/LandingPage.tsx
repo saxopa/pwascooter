@@ -105,37 +105,16 @@ export default function LandingPage() {
 
   useEffect(() => {
     let isMounted = true
+    
+    const params = new URLSearchParams(window.location.search)
+    const errorDescription = params.get('error_description')
 
-    async function restoreSession() {
-      const params = new URLSearchParams(window.location.search)
-      const authCode = params.get('code')
-      const errorDescription = params.get('error_description')
-
-      if (errorDescription && isMounted) {
-        setOauthError(decodeURIComponent(errorDescription))
-        return
-      }
-
-      if (authCode) {
-        const { error } = await supabase.auth.exchangeCodeForSession(authCode)
-        if (error) {
-          if (isMounted) {
-            setOauthError(error.message)
-          }
-          return
-        }
-      }
-
-      const { data } = await supabase.auth.getSession()
-      if (isMounted && data.session?.user) {
-        navigate('/map', { replace: true })
-      }
+    if (errorDescription && isMounted) {
+      setOauthError(decodeURIComponent(errorDescription))
     }
 
-    void restoreSession()
-
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+      if (session?.user && isMounted) {
         navigate('/map', { replace: true })
       }
     })

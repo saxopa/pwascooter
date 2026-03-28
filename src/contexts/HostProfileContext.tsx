@@ -26,8 +26,11 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<Profile | null>(null)
     const [loading, setLoading] = useState(true)
+    const lastFetchedUserIdRef = useRef<string | null>(null)
 
     const fetchProfile = useCallback(async (currentUser: User) => {
+        if (lastFetchedUserIdRef.current === currentUser.id) return
+        lastFetchedUserIdRef.current = currentUser.id
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -63,7 +66,10 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const refreshProfile = useCallback(async () => {
-        if (user) await fetchProfile(user)
+        if (user) {
+            lastFetchedUserIdRef.current = null // Force refetch
+            await fetchProfile(user)
+        }
     }, [user, fetchProfile])
 
     // Ref to avoid stale closure AND prevent deps from triggering re-subscription
@@ -84,11 +90,15 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         void init()
 
         const { data: listener } = supabase.auth.onAuthStateChange(
-            async (_event: string, session: Session | null) => {
+            async (event: string, session: Session | null) => {
+                if (event === 'INITIAL_SESSION') return // handled by init()
                 const newUser = session?.user ?? null
                 if (isMounted) setUser(newUser)
                 if (newUser) await fetchProfileRef.current(newUser)
-                else if (isMounted) setProfile(null)
+                else if (isMounted) {
+                    setProfile(null)
+                    lastFetchedUserIdRef.current = null
+                }
             }
         )
 

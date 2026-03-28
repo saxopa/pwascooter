@@ -18,14 +18,29 @@ export function HostsProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
+    let hostsCache: { data: Host[]; fetchedAt: number } | null = null
+    const CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+
     const fetchHosts = useCallback(async () => {
+        if (hostsCache && Date.now() - hostsCache.fetchedAt < CACHE_TTL) {
+            setHosts(hostsCache.data)
+            setLoading(false)
+            return
+        }
+
         setLoading(true)
         const { data, error: err } = await supabase
-            .from('hosts')
-            .select('*')
+            .from('hosts_map')
+            .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id')
 
-        if (err) setError(err.message)
-        else setHosts(data ?? [])
+        if (err) {
+            setError(err.message)
+        } else {
+            // Re-adding is_active=true strictly for the frontend TS types that might expect it, though it's implicit
+            const mappedHosts = (data ?? []).map(h => ({ ...h, is_active: true })) as unknown as Host[]
+            setHosts(mappedHosts)
+            hostsCache = { data: mappedHosts, fetchedAt: Date.now() }
+        }
 
         setLoading(false)
     }, [])
