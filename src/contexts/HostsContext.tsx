@@ -31,13 +31,12 @@ export function HostsProvider({ children }: { children: ReactNode }) {
         setLoading(true)
         const { data, error: err } = await supabase
             .from('hosts_map')
-            .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id')
+            .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
 
         if (err) {
             setError(err.message)
         } else {
-            // Re-adding is_active=true strictly for the frontend TS types that might expect it, though it's implicit
-            const mappedHosts = (data ?? []).map(h => ({ ...h, is_active: true })) as unknown as Host[]
+            const mappedHosts = (data ?? []) as unknown as Host[]
             setHosts(mappedHosts)
             hostsCache = { data: mappedHosts, fetchedAt: Date.now() }
         }

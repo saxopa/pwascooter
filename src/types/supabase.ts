@@ -309,6 +309,7 @@ export type Database = {
           capacity: number | null
           has_charging: boolean | null
           id: string | null
+          is_active: boolean | null
           latitude: number | null
           longitude: number | null
           name: string | null
@@ -319,6 +320,7 @@ export type Database = {
           capacity?: number | null
           has_charging?: boolean | null
           id?: string | null
+          is_active?: boolean | null
           latitude?: number | null
           longitude?: number | null
           name?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           capacity?: number | null
           has_charging?: boolean | null
           id?: string | null
+          is_active?: boolean | null
           latitude?: number | null
           longitude?: number | null
           name?: string | null
