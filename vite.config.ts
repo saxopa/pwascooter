@@ -53,32 +53,16 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // AXE 3 — Background Sync : file d'attente pour mutations Supabase hors-ligne
+          // Background Sync retiré car incompatible avec le refresh token de Supabase et génère des QuotaExceededError en navigation privée.
           {
             urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\//,
             method: 'POST',
             handler: 'NetworkOnly',
-            options: {
-              backgroundSync: {
-                name: 'supabase-mutations-queue',
-                options: {
-                  maxRetentionTime: 60 * 24, // 24 heures en minutes
-                },
-              },
-            },
           },
           {
             urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\//,
             method: 'PATCH',
             handler: 'NetworkOnly',
-            options: {
-              backgroundSync: {
-                name: 'supabase-mutations-queue',
-                options: {
-                  maxRetentionTime: 60 * 24,
-                },
-              },
-            },
           },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,

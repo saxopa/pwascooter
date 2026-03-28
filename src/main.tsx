@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import './index.css'
@@ -25,7 +25,7 @@ class PWAErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  <>
     <PWAErrorBoundary>
       <PWAManager />
     </PWAErrorBoundary>
@@ -36,7 +36,7 @@ createRoot(document.getElementById('root')!).render(
         </HashRouter>
       </HostsProvider>
     </HostProfileProvider>
-  </StrictMode>,
+  </>,
 )
 
 if (import.meta.env.PROD) {
