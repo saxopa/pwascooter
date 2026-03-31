@@ -5,7 +5,6 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { useHostProfile } from './contexts/HostProfileContext'
 
 const LandingPage = lazy(() => import('./components/LandingPage'))
-const AuthCallback = lazy(() => import('./components/AuthCallback'))
 const MapView = lazy(() => import('./components/MapView'))
 const BookingsList = lazy(() => import('./components/BookingsList'))
 const HostDashboard = lazy(() => import('./components/HostDashboard'))
@@ -36,7 +35,6 @@ function AppRoutes() {
     <Suspense fallback={<AppShellLoader />}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/cgu" element={<TermsPage />} />
         <Route path="/devenir-hote" element={<BecomeHost />} />
         <Route path="/map" element={<MapView />} />
@@ -65,12 +63,14 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
 
     async function bootstrapSession() {
       try {
+        const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
         const searchParams = new URLSearchParams(window.location.search)
         const authCode = searchParams.get('code')
 
         if (authCode) {
+          window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
           if (isMounted) {
-            navigate('/auth/callback', { replace: true })
+            navigate('/map', { replace: true })
           }
         } else {
           const hash = window.location.hash
@@ -95,7 +95,6 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
               } catch (error) {
                 console.error('Session bootstrap timed out:', error)
               } finally {
-                const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
                 window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
                 if (isMounted) {
                   navigate('/map', { replace: true })
