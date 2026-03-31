@@ -91,7 +91,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}${basePath}/`,
+                redirectTo: `${window.location.origin}${basePath}/#/auth/callback`,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',

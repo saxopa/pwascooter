@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { useHostProfile } from './contexts/HostProfileContext'
 
 const LandingPage = lazy(() => import('./components/LandingPage'))
+const AuthCallback = lazy(() => import('./components/AuthCallback'))
 const MapView = lazy(() => import('./components/MapView'))
 const BookingsList = lazy(() => import('./components/BookingsList'))
 const HostDashboard = lazy(() => import('./components/HostDashboard'))
@@ -35,6 +36,7 @@ function AppRoutes() {
     <Suspense fallback={<AppShellLoader />}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/cgu" element={<TermsPage />} />
         <Route path="/devenir-hote" element={<BecomeHost />} />
         <Route path="/map" element={<MapView />} />
@@ -60,23 +62,6 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
 
   useEffect(() => {
     let isMounted = true
-    const OAUTH_BOOTSTRAP_TIMEOUT_MS = 4000
-
-    function stripOAuthParams(targetPath: string) {
-      const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-      const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`
-      const cleanUrl = `${window.location.origin}${basePath}/#${normalizedPath}`
-      window.history.replaceState({}, document.title, cleanUrl)
-    }
-
-    async function withTimeout<T>(promise: Promise<T>, timeoutMessage: string) {
-      return await Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-          window.setTimeout(() => reject(new Error(timeoutMessage)), OAUTH_BOOTSTRAP_TIMEOUT_MS)
-        }),
-      ])
-    }
 
     async function bootstrapSession() {
       try {
@@ -84,22 +69,8 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
         const authCode = searchParams.get('code')
 
         if (authCode) {
-          try {
-            const { error } = await withTimeout(
-              supabase.auth.exchangeCodeForSession(authCode),
-              'OAUTH_EXCHANGE_TIMEOUT',
-            )
-
-            if (error) {
-              console.error('OAuth code exchange failed:', error)
-            }
-          } catch (error) {
-            console.error('OAuth code exchange timed out:', error)
-          } finally {
-            stripOAuthParams('/map')
-            if (isMounted) {
-              navigate('/map', { replace: true })
-            }
+          if (isMounted) {
+            navigate('/auth/callback', { replace: true })
           }
         } else {
           const hash = window.location.hash
@@ -113,13 +84,10 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
 
             if (accessToken && refreshToken) {
               try {
-                const { error } = await withTimeout(
-                  supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                  }),
-                  'SESSION_BOOTSTRAP_TIMEOUT',
-                )
+                const { error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken,
+                })
 
                 if (error) {
                   console.error('Session bootstrap failed:', error)
@@ -127,7 +95,8 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
               } catch (error) {
                 console.error('Session bootstrap timed out:', error)
               } finally {
-                stripOAuthParams('/map')
+                const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+                window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
                 if (isMounted) {
                   navigate('/map', { replace: true })
                 }
