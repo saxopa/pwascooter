@@ -344,6 +344,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 
     const totalPrice = Number(host.price_per_hour) * selectedDuration
     const isSelfBooking = !!user && host.owner_id === user.id
+    const isLegacyDemoHost = host.owner_id == null
 
     async function handleBook() {
         if (!user) return
@@ -667,6 +668,12 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                     </div>
                 )}
 
+                {isLegacyDemoHost && (
+                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: 16, padding: 12, background: 'rgba(255,255,255,0.08)', borderRadius: 'var(--radius-sm)' }}>
+                        Place de démonstration réaffichée pour la carte. La réservation est désactivée tant qu’aucun commerçant validé n’y est rattaché.
+                    </div>
+                )}
+
                 {/* Auth / CTA Button & Itinerary */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <button
@@ -687,7 +694,21 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                         <Navigation size={18} />
                     </button>
 
-                    {!user ? (
+                    {isLegacyDemoHost ? (
+                        <button
+                            disabled
+                            style={{
+                                flex: 1, padding: '14px 20px',
+                                background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-muted)',
+                                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--radius-md)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                cursor: 'not-allowed', fontWeight: 600, whiteSpace: 'nowrap',
+                            }}
+                        >
+                            <Package size={18} />
+                            Place de démonstration
+                        </button>
+                    ) : !user ? (
                         <button
                             onClick={onOpenAuth}
                             style={{
@@ -706,11 +727,11 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                         <button
                             className="btn-primary"
                             onClick={handleBook}
-                            disabled={isPaying || isSelfBooking}
+                            disabled={isPaying || isSelfBooking || isLegacyDemoHost}
                             style={{
                                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                opacity: isPaying || isSelfBooking ? 0.7 : 1,
-                                cursor: isPaying || isSelfBooking ? 'not-allowed' : 'pointer',
+                                opacity: isPaying || isSelfBooking || isLegacyDemoHost ? 0.7 : 1,
+                                cursor: isPaying || isSelfBooking || isLegacyDemoHost ? 'not-allowed' : 'pointer',
                                 padding: '14px 20px',
                                 whiteSpace: 'nowrap',
                             }}
@@ -738,12 +759,13 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 export default function MapView() {
     const navigate = useNavigate()
     const { user, profile, isHost, refreshProfile, loading: profileLoading } = useHostProfile()
-    const { hosts, loading: hostsLoading, error: hostsError } = useHosts()
+    const { hosts, loading: hostsLoading, error: hostsError, refreshHosts } = useHosts()
     const [selectedHost, setSelectedHost] = useState<Host | null>(null)
     const [showAuthModal, setShowAuthModal] = useState(false)
     const [filterCharging, setFilterCharging] = useState(false)
     const [filterCheap, setFilterCheap] = useState(false)
     const [locateRequest, setLocateRequest] = useState(0)
+    const hostsRefreshKeyRef = useRef<string | null>(null)
 
     const needsRoleSelect = !!user && !profileLoading && !profile?.role
 
@@ -765,6 +787,13 @@ export default function MapView() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [!!user]) // only re-run when user goes from null->truthy or vice versa
+
+    useEffect(() => {
+        const refreshKey = user?.id ?? 'anonymous'
+        if (hostsRefreshKeyRef.current === refreshKey) return
+        hostsRefreshKeyRef.current = refreshKey
+        void refreshHosts()
+    }, [refreshHosts, user?.id])
 
     async function handleSignOut() {
         await supabase.auth.signOut()

@@ -56,6 +56,7 @@ function AppRoutes() {
 function AppBootstrap({ onReady }: { onReady: () => void }) {
   const navigate = useNavigate()
   const { loading: profileLoading } = useHostProfile()
+  const [sessionBootstrapDone, setSessionBootstrapDone] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -94,6 +95,10 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
         }
       } catch (error) {
         console.error('App bootstrap failed:', error)
+      } finally {
+        if (isMounted) {
+          setSessionBootstrapDone(true)
+        }
       }
     }
 
@@ -105,19 +110,21 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
   }, [navigate])
 
   useEffect(() => {
-    if (!profileLoading) {
+    if (sessionBootstrapDone && !profileLoading) {
       onReady()
       return
     }
-    
+
     const fallbackTimer = window.setTimeout(() => {
-      onReady()
+      if (sessionBootstrapDone) {
+        onReady()
+      }
     }, 1500)
 
     return () => {
       window.clearTimeout(fallbackTimer)
     }
-  }, [profileLoading, onReady])
+  }, [profileLoading, sessionBootstrapDone, onReady])
 
   return null
 }
