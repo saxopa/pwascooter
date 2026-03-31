@@ -60,6 +60,23 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
 
   useEffect(() => {
     let isMounted = true
+    const OAUTH_BOOTSTRAP_TIMEOUT_MS = 4000
+
+    function stripOAuthParams(targetPath: string) {
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+      const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`
+      const cleanUrl = `${window.location.origin}${basePath}/#${normalizedPath}`
+      window.history.replaceState({}, document.title, cleanUrl)
+    }
+
+    async function withTimeout<T>(promise: Promise<T>, timeoutMessage: string) {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          window.setTimeout(() => reject(new Error(timeoutMessage)), OAUTH_BOOTSTRAP_TIMEOUT_MS)
+        }),
+      ])
+    }
 
     async function bootstrapSession() {
       try {
@@ -67,9 +84,22 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
         const authCode = searchParams.get('code')
 
         if (authCode) {
-          const { error } = await supabase.auth.exchangeCodeForSession(authCode)
-          if (!error && isMounted) {
-            navigate('/map', { replace: true })
+          try {
+            const { error } = await withTimeout(
+              supabase.auth.exchangeCodeForSession(authCode),
+              'OAUTH_EXCHANGE_TIMEOUT',
+            )
+
+            if (error) {
+              console.error('OAuth code exchange failed:', error)
+            }
+          } catch (error) {
+            console.error('OAuth code exchange timed out:', error)
+          } finally {
+            stripOAuthParams('/map')
+            if (isMounted) {
+              navigate('/map', { replace: true })
+            }
           }
         } else {
           const hash = window.location.hash
@@ -82,13 +112,25 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
             const refreshToken = tokenParams.get('refresh_token')
 
             if (accessToken && refreshToken) {
-              const { error } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              })
+              try {
+                const { error } = await withTimeout(
+                  supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                  }),
+                  'SESSION_BOOTSTRAP_TIMEOUT',
+                )
 
-              if (!error && isMounted) {
-                navigate('/map', { replace: true })
+                if (error) {
+                  console.error('Session bootstrap failed:', error)
+                }
+              } catch (error) {
+                console.error('Session bootstrap timed out:', error)
+              } finally {
+                stripOAuthParams('/map')
+                if (isMounted) {
+                  navigate('/map', { replace: true })
+                }
               }
             }
           }
@@ -116,9 +158,7 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
     }
 
     const fallbackTimer = window.setTimeout(() => {
-      if (sessionBootstrapDone) {
-        onReady()
-      }
+      onReady()
     }, 1500)
 
     return () => {
