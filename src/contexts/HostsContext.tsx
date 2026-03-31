@@ -1,8 +1,10 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 
 type Host = Tables<'hosts'>
+const HOSTS_CACHE_TTL = 2 * 60 * 1000
 
 interface HostsContextType {
     hosts: Host[]
@@ -17,13 +19,11 @@ export function HostsProvider({ children }: { children: ReactNode }) {
     const [hosts, setHosts] = useState<Host[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-
-    let hostsCache: { data: Host[]; fetchedAt: number } | null = null
-    const CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+    const hostsCacheRef = useRef<{ data: Host[]; fetchedAt: number } | null>(null)
 
     const fetchHosts = useCallback(async () => {
-        if (hostsCache && Date.now() - hostsCache.fetchedAt < CACHE_TTL) {
-            setHosts(hostsCache.data)
+        if (hostsCacheRef.current && Date.now() - hostsCacheRef.current.fetchedAt < HOSTS_CACHE_TTL) {
+            setHosts(hostsCacheRef.current.data)
             setLoading(false)
             return
         }
@@ -43,7 +43,7 @@ export function HostsProvider({ children }: { children: ReactNode }) {
             if (!viewError) {
                 const mappedHosts = (data ?? []) as unknown as Host[]
                 setHosts(mappedHosts)
-                hostsCache = { data: mappedHosts, fetchedAt: Date.now() }
+                hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
                 return
             }
 
@@ -59,7 +59,7 @@ export function HostsProvider({ children }: { children: ReactNode }) {
 
             const mappedHosts = (fallbackData ?? []) as Host[]
             setHosts(mappedHosts)
-            hostsCache = { data: mappedHosts, fetchedAt: Date.now() }
+            hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Impossible de charger la carte.'
             setError(message === 'AbortError' ? 'Le chargement de la carte a expiré.' : message)

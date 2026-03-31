@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { User, Session } from '@supabase/supabase-js'
@@ -22,6 +23,10 @@ interface HostProfileContextType {
 
 const HostProfileContext = createContext<HostProfileContextType | null>(null)
 
+function isApprovedHost(profile: Profile | null) {
+    return profile?.role === 'host' && profile.host_status === 'approved'
+}
+
 export function HostProfileProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<Profile | null>(null)
@@ -43,6 +48,7 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         if (!isMissingProfile) return
 
         const metadata = currentUser.user_metadata ?? {}
+        const requestedHostAccess = metadata.role === 'host' || metadata.requested_role === 'host'
         const fallbackName =
             metadata.nom ?? metadata.full_name ?? metadata.name ??
             currentUser.email?.split('@')[0] ?? 'Utilisateur'
@@ -51,9 +57,10 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
             id: currentUser.id,
             email: currentUser.email ?? '',
             nom: String(fallbackName),
+            role: 'user' as const,
+            host_status: requestedHostAccess ? 'pending' : null,
             company_name: typeof metadata.company_name === 'string'
                 ? metadata.company_name : null,
-            ...(typeof metadata.role === 'string' ? { role: metadata.role } : {}),
         }
 
         const { data: inserted } = await supabase
@@ -72,7 +79,6 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         }
     }, [user, fetchProfile])
 
-    // Ref to avoid stale closure AND prevent deps from triggering re-subscription
     const fetchProfileRef = useRef(fetchProfile)
     fetchProfileRef.current = fetchProfile
 
@@ -123,12 +129,11 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
             isMounted = false
             listener.subscription.unsubscribe()
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     return (
         <HostProfileContext.Provider
-            value={{ user, profile, isHost: profile?.role === 'host', loading, refreshProfile }}
+            value={{ user, profile, isHost: isApprovedHost(profile), loading, refreshProfile }}
         >
             {children}
         </HostProfileContext.Provider>

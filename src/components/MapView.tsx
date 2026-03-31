@@ -37,7 +37,7 @@ import { resolveBookingPickupCode } from '../lib/bookingCode'
 import { sendBookingNotification } from '../lib/bookingNotifications'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
-import CheckoutForm from './CheckoutForm'
+import CheckoutForm, { type ConfirmedBookingPayload } from './CheckoutForm'
 
 type Host = Tables<'hosts'>
 
@@ -340,6 +340,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
     const [confirmedStartTime, setConfirmedStartTime] = useState<string | null>(null)
     const [confirmedEndTime, setConfirmedEndTime] = useState<string | null>(null)
     const [clientSecret, setClientSecret] = useState<string | null>(null)
+    const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
 
     const totalPrice = Number(host.price_per_hour) * selectedDuration
     const isSelfBooking = !!user && host.owner_id === user.id
@@ -358,54 +359,27 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             setConfirmedStartTime(startTime.toISOString())
             setConfirmedEndTime(endTime.toISOString())
 
-            // 2. Initialiser Stripe Payment Intent AVANT de créer la réservation
-            const amountInCents = Math.round(totalPrice * 100)
+            // 2. Initialiser Stripe Payment Intent avec calcul serveur autoritaire
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 8000)
 
             const { data: intentData, error: intentError } = await supabase.functions.invoke('create-payment-intent', {
-                body: { amount: amountInCents },
+                body: {
+                    hostId: host.id,
+                    startTime: startTime.toISOString(),
+                    endTime: endTime.toISOString(),
+                },
                 signal: controller.signal
             })
 
             clearTimeout(timeoutId)
 
-            if (intentError || !intentData?.clientSecret) {
+            if (intentError || !intentData?.clientSecret || !intentData?.paymentIntentId) {
                 throw new Error('Erreur lors de l’initialisation du paiement sécurisé (Stripe).')
             }
 
-            // 3. Appel RPC anti-surbooking seulement si Stripe est OK
-            const { data: rawRpcData, error: rpcError } = await supabase.rpc('book_parking_spot', {
-                p_host_id: host.id,
-                p_start_time: startTime.toISOString(),
-                p_end_time: endTime.toISOString(),
-                p_total_price: Number(totalPrice.toFixed(2)),
-            })
-
-            const rpcData = rawRpcData as { success: boolean; error?: string; booking_id?: string } | null
-
-            if (rpcError) throw rpcError
-
-            // 4. Vérifier le résultat métier
-            if (!rpcData?.success) {
-                if (rpcData?.error === 'PARKING_FULL') {
-                    setError('Ce parking est complet pour ce créneau. Essaie une autre heure ou un autre parking.')
-                } else if (rpcData?.error === 'SELF_BOOKING_FORBIDDEN') {
-                    setError('Vous ne pouvez pas réserver votre propre place commerçant.')
-                } else if (rpcData?.error === 'AUTH_REQUIRED') {
-                    setError('Votre session a expiré. Reconnectez-vous pour réserver.')
-                } else if (rpcData?.error === 'HOST_NOT_AVAILABLE') {
-                    setError('Cette place n’est plus disponible pour le moment.')
-                } else if (rpcData?.error === 'INVALID_TIME_RANGE') {
-                    setError('Le créneau demandé est invalide.')
-                } else {
-                    throw new Error(rpcData?.error ?? 'Erreur lors de la réservation.')
-                }
-                return
-            }
-
-            // 5. Enregistrer le succès initial
-            setConfirmedBookingId(rpcData.booking_id ?? null)
+            // 3. Enregistrer l'intention de paiement. La réservation ne sera créée qu'après confirmation serveur.
+            setPaymentIntentId(intentData.paymentIntentId)
             setClientSecret(intentData.clientSecret)
         } catch (err: unknown) {
             console.error(err)
@@ -417,27 +391,14 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         }
     }
 
-    async function handlePaymentSuccess() {
-        if (!confirmedBookingId) return
-
+    async function handlePaymentSuccess(payload: ConfirmedBookingPayload) {
         try {
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 15000)
-
-            const { data: bookingData, error } = await supabase
-                .from('bookings')
-                .select('id, pickup_code')
-                .eq('id', confirmedBookingId)
-                .abortSignal(controller.signal)
-                .single()
-
-            clearTimeout(timeoutId)
-            if (error) throw error
-
-            const pickupCode = resolveBookingPickupCode(bookingData?.pickup_code, confirmedBookingId)
+            const bookingId = payload.bookingId
+            const pickupCode = resolveBookingPickupCode(payload.pickupCode, bookingId)
             if (!isMountedRef.current) return
+            setConfirmedBookingId(bookingId)
             setConfirmedPickupCode(pickupCode)
-            void sendBookingNotification('booking_created', confirmedBookingId)
+            void sendBookingNotification('booking_created', bookingId)
 
             // Stockage local de la réservation (sauvegarde hors ligne/cache)
             const saveToLocalStorage = (data: object) => {
@@ -450,7 +411,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             }
 
             saveToLocalStorage({
-                bookingId: confirmedBookingId,
+                bookingId,
                 pickupCode: pickupCode,
                 hostName: host.name,
                 hostLat: host.latitude,
@@ -486,7 +447,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             })}`
             : null
 
-    if (clientSecret && confirmedBookingId && !success) {
+    if (clientSecret && paymentIntentId && !success) {
         const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
         const isKeyMissing = !stripeKey || stripeKey.trim() === ''
 
@@ -523,7 +484,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                         </div>
                     ) : (
                         <Elements stripe={getStripePromise()} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#6C5CE7', colorBackground: '#1a1a2e', colorText: '#ffffff', colorDanger: '#ff6b6b' } } }}>
-                            <CheckoutForm bookingId={confirmedBookingId} onSuccess={handlePaymentSuccess} />
+                            <CheckoutForm paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} />
                         </Elements>
                     )}
                 </div>

@@ -37,11 +37,13 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
 
                 const metadata: Record<string, string> = {
                     nom,
-                    role: isHost ? 'host' : 'user',
+                    role: 'user',
                     terms_accepted_at: new Date().toISOString(),
                 }
                 if (isHost && companyName.trim()) {
                     metadata.company_name = companyName.trim()
+                    metadata.requested_role = 'host'
+                    metadata.host_status = 'pending'
                 }
 
                 const { error: signUpError } = await supabase.auth.signUp({
@@ -259,7 +261,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                             }}
                         >
                             <Building2 size={16} />
-                            Je veux devenir hôte
+                            Je veux demander l’accès hôte
                             <span style={{
                                 marginLeft: 'auto',
                                 width: 36, height: 20, borderRadius: 10,
@@ -289,6 +291,12 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                                 style={inputStyle}
                             />
                         </div>
+                    )}
+
+                    {mode === 'register' && isHost && (
+                        <p style={{ margin: '-4px 2px 0', color: 'var(--color-text-muted)', fontSize: '0.78rem', lineHeight: 1.5 }}>
+                            La création du compte reste immédiate, mais l’accès hôte n’est activé qu’après validation manuelle.
+                        </p>
                     )}
 
                     {/* Nom (register only) */}

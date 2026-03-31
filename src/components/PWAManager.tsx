@@ -8,19 +8,18 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function PWAManager() {
+  const [isIOS] = useState(() => {
+    const ua = navigator.userAgent
+    return /iPad|iPhone|iPod/.test(ua) && !('MSStream' in window)
+  })
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
-  const [isIOS, setIsIOS] = useState(false)
   const [showIOSGuide, setShowIOSGuide] = useState(false)
   const [isDismissed, setIsDismissed] = useState(false)
 
   useEffect(() => {
-    // Détection iOS Safari
-    const ua = navigator.userAgent
-    const isIOSDevice = /iPad|iPhone|iPod/.test(ua) && !('MSStream' in window)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    setIsIOS(isIOSDevice)
 
     // Helper pour capturer SecurityError sur iOS Private Browsing
     const safeStorage = {
@@ -39,26 +38,35 @@ export default function PWAManager() {
       : false
 
     if (!isStandalone && !alreadyDismissed) {
-      if (isIOSDevice) {
+      if (isIOS) {
         // Sur iOS, montrer le guide après 30s
         const timer = setTimeout(() => setShowInstallBanner(true), 30000)
         return () => clearTimeout(timer)
       }
     }
-  }, [])
+  }, [isIOS])
 
   useEffect(() => {
     // Capture l'événement beforeinstallprompt (Chrome/Android)
+    let bannerTimer: number | null = null
+
     const handler = (e: Event) => {
       e.preventDefault()
       setInstallPrompt(e as BeforeInstallPromptEvent)
       // Montre la bannière après 60 secondes de navigation
-      const timer = setTimeout(() => setShowInstallBanner(true), 60000)
-      return () => clearTimeout(timer)
+      if (bannerTimer !== null) {
+        window.clearTimeout(bannerTimer)
+      }
+      bannerTimer = window.setTimeout(() => setShowInstallBanner(true), 60000)
     }
 
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    return () => {
+      if (bannerTimer !== null) {
+        window.clearTimeout(bannerTimer)
+      }
+      window.removeEventListener('beforeinstallprompt', handler)
+    }
   }, [])
 
   useEffect(() => {

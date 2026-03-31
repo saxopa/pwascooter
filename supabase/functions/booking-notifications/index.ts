@@ -52,6 +52,11 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 })
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function formatSchedule(start: string, end: string) {
   const startDate = new Date(start)
   const endDate = new Date(end)
@@ -310,10 +315,14 @@ function assertEventAccess(eventType: BookingNotificationEvent, actorId: string,
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
@@ -421,13 +430,13 @@ Deno.serve(async (req: Request) => {
       results,
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     return new Response(JSON.stringify({ ok: false, error: message }), {
       status: message === 'AUTH_REQUIRED' ? 401 : message === 'FORBIDDEN' ? 403 : 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

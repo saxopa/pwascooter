@@ -19,8 +19,13 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
         setError(null)
 
         try {
-            const metadata: Record<string, string> = { role: selectedRole }
-            if (selectedRole === 'host' && companyName.trim()) {
+            const wantsHostAccess = selectedRole === 'host'
+            const metadata: Record<string, string> = { role: 'user' }
+            if (wantsHostAccess) {
+                metadata.requested_role = 'host'
+                metadata.host_status = 'pending'
+            }
+            if (wantsHostAccess && companyName.trim()) {
                 metadata.company_name = companyName.trim()
             }
             const acceptedTermsAt = window.sessionStorage.getItem('scootsafe_terms_accepted_at')
@@ -49,8 +54,9 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
                     id: userId,
                     email: authUser.email ?? '',
                     nom: String(fallbackName),
-                    role: selectedRole,
-                    company_name: selectedRole === 'host' ? (companyName.trim() || null) : null,
+                    role: 'user',
+                    host_status: wantsHostAccess ? 'pending' : null,
+                    company_name: wantsHostAccess ? (companyName.trim() || null) : null,
                 }, { onConflict: 'id' })
 
             if (updateProfileErr) throw updateProfileErr
@@ -156,22 +162,27 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
                         <Building2 size={28} />
                         <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Commerçant</span>
                         <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                            Je propose des places
+                            Je demande l’accès pro
                         </span>
                     </button>
                 </div>
 
                 {selectedRole === 'host' && (
-                    <div style={{ position: 'relative', marginBottom: 16 }}>
-                        <Building2 size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
-                        <input
-                            type="text"
-                            placeholder="Nom de votre commerce/entreprise"
-                            value={companyName}
-                            onChange={e => setCompanyName(e.target.value)}
-                            style={inputStyle}
-                        />
-                    </div>
+                    <>
+                        <div style={{ position: 'relative', marginBottom: 16 }}>
+                            <Building2 size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                            <input
+                                type="text"
+                                placeholder="Nom de votre commerce/entreprise"
+                                value={companyName}
+                                onChange={e => setCompanyName(e.target.value)}
+                                style={inputStyle}
+                            />
+                        </div>
+                        <p style={{ margin: '-6px 2px 16px', color: 'var(--color-text-muted)', fontSize: '0.78rem', lineHeight: 1.5 }}>
+                            La demande d’accès hôte sera enregistrée en attente de validation manuelle.
+                        </p>
+                    </>
                 )}
 
                 {error && (

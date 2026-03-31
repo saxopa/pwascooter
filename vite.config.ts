@@ -42,7 +42,7 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\/hosts/,
+            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\/(hosts|hosts_map)/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'supabase-hosts-cache',
@@ -85,9 +85,8 @@ export default defineConfig({
           },
         ],
       },
-      // AXE 4 — SW debugging en mode dev
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
     }),
   ],

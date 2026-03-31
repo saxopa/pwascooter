@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@^14.18.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2023-10-16",
@@ -11,35 +12,110 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const admin = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});
+
+function errorResponse(message: string, status = 400) {
+  return new Response(JSON.stringify({ error: message }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status,
+  });
+}
+
+function computeAmountInCents(pricePerHour: number, startTimeIso: string, endTimeIso: string) {
+  const start = new Date(startTimeIso);
+  const end = new Date(endTimeIso);
+  const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
+
+  if (!Number.isFinite(durationHours) || durationHours <= 0) {
+    throw new Error("INVALID_TIME_RANGE");
+  }
+
+  const total = Number((pricePerHour * durationHours).toFixed(2));
+  return Math.round(total * 100);
+}
+
+async function getActorUser(authHeader: string | null) {
+  if (!authHeader) {
+    throw new Error("AUTH_REQUIRED");
+  }
+
+  const client = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user) {
+    throw new Error("AUTH_REQUIRED");
+  }
+
+  return data.user;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    const { amount } = await req.json();
+  if (req.method !== "POST") {
+    return errorResponse("METHOD_NOT_ALLOWED", 405);
+  }
 
-    if (!amount || typeof amount !== "number") {
-      throw new Error("Invalid amount.");
+  try {
+    const actor = await getActorUser(req.headers.get("Authorization"));
+    const { hostId, startTime, endTime } = await req.json();
+
+    if (!hostId || !startTime || !endTime) {
+      throw new Error("INVALID_PAYLOAD");
     }
 
+    const { data: host, error: hostError } = await admin
+      .from("hosts")
+      .select("id, owner_id, price_per_hour, is_active")
+      .eq("id", hostId)
+      .single();
+
+    if (hostError || !host || !host.is_active) {
+      throw new Error("HOST_NOT_AVAILABLE");
+    }
+
+    if (host.owner_id === actor.id) {
+      throw new Error("SELF_BOOKING_FORBIDDEN");
+    }
+
+    const amount = computeAmountInCents(Number(host.price_per_hour), startTime, endTime);
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount,
+      amount,
       currency: "eur",
       automatic_payment_methods: {
         enabled: true,
       },
+      metadata: {
+        user_id: actor.id,
+        host_id: hostId,
+        start_time: startTime,
+        end_time: endTime,
+      },
     });
 
-    return new Response(JSON.stringify({ clientSecret: paymentIntent.client_secret }), {
+    return new Response(JSON.stringify({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    const errorMessage = err instanceof Error ? err.message : "UNKNOWN_ERROR";
+    const status = errorMessage === "AUTH_REQUIRED" ? 401 : errorMessage === "SELF_BOOKING_FORBIDDEN" ? 403 : 400;
+    return errorResponse(errorMessage, status);
   }
 });

@@ -7,12 +7,17 @@ import {
 import { supabase } from '../lib/supabaseClient'
 import { Loader2 } from 'lucide-react'
 
-interface CheckoutFormProps {
+export interface ConfirmedBookingPayload {
   bookingId: string
-  onSuccess: () => void
+  pickupCode: string | null
 }
 
-export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps) {
+interface CheckoutFormProps {
+  paymentIntentId: string
+  onSuccess: (payload: ConfirmedBookingPayload) => void
+}
+
+export default function CheckoutForm({ paymentIntentId, onSuccess }: CheckoutFormProps) {
   const stripe = useStripe()
   const elements = useElements()
 
@@ -51,20 +56,22 @@ export default function CheckoutForm({ bookingId, onSuccess }: CheckoutFormProps
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-        const { error: dbError } = await supabase
-          .from('bookings')
-          .update({ status: 'active' })
-          .eq('id', bookingId)
-          .abortSignal(controller.signal)
+        const { data, error: confirmError } = await supabase.functions.invoke('confirm-booking-payment', {
+          body: { paymentIntentId },
+          signal: controller.signal,
+        })
 
         clearTimeout(timeoutId)
 
-        if (dbError) {
-          console.error('Erreur DB après paiement:', dbError)
-          setMessage('Paiement réussi mais erreur de synchronisation. Vérifiez votre connexion.')
+        if (confirmError || !data?.ok || !data?.bookingId) {
+          console.error('Erreur de confirmation de réservation après paiement:', confirmError ?? data)
+          setMessage('Paiement réussi mais réservation non confirmée. Contactez le support si le débit apparaît.')
           setIsLoading(false)
         } else {
-          onSuccess()
+          onSuccess({
+            bookingId: data.bookingId as string,
+            pickupCode: typeof data.pickupCode === 'string' ? data.pickupCode : null,
+          })
         }
       } else {
         setMessage('Paiement en cours de traitement...')

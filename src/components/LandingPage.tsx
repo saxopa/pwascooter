@@ -101,17 +101,13 @@ function SectionTitle({ eyebrow, title, body }: { eyebrow: string; title: string
 export default function LandingPage() {
   const navigate = useNavigate()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [oauthError, setOauthError] = useState<string | null>(null)
+  const [oauthError] = useState<string | null>(() => {
+    const errorDescription = new URLSearchParams(window.location.search).get('error_description')
+    return errorDescription ? decodeURIComponent(errorDescription) : null
+  })
 
   useEffect(() => {
     let isMounted = true
-    
-    const params = new URLSearchParams(window.location.search)
-    const errorDescription = params.get('error_description')
-
-    if (errorDescription && isMounted) {
-      setOauthError(decodeURIComponent(errorDescription))
-    }
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user && isMounted) {

@@ -9,6 +9,10 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
     const { user, profile, loading } = useHostProfile()
+    const hasRequiredRole =
+        requiredRole === 'host'
+            ? profile?.role === 'host' && profile.host_status === 'approved'
+            : profile?.role === requiredRole
 
     if (loading) {
         return (
@@ -29,7 +33,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         )
     }
 
-    if (!user || profile?.role !== requiredRole) {
+    if (!user || !hasRequiredRole) {
         return <Navigate to="/map" replace />
     }
 
