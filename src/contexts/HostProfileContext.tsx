@@ -80,11 +80,20 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         let isMounted = true
 
         async function init() {
-            const { data } = await supabase.auth.getSession()
-            const currentUser = data.session?.user ?? null
-            if (isMounted) setUser(currentUser)
-            if (currentUser) await fetchProfileRef.current(currentUser)
-            if (isMounted) setLoading(false)
+            try {
+                const { data } = await supabase.auth.getSession()
+                const currentUser = data.session?.user ?? null
+                if (isMounted) setUser(currentUser)
+                if (currentUser) await fetchProfileRef.current(currentUser)
+            } catch (error) {
+                console.error('Failed to initialize host profile context:', error)
+                if (isMounted) {
+                    setUser(null)
+                    setProfile(null)
+                }
+            } finally {
+                if (isMounted) setLoading(false)
+            }
         }
 
         void init()
@@ -92,12 +101,20 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         const { data: listener } = supabase.auth.onAuthStateChange(
             async (event: string, session: Session | null) => {
                 if (event === 'INITIAL_SESSION') return // handled by init()
-                const newUser = session?.user ?? null
-                if (isMounted) setUser(newUser)
-                if (newUser) await fetchProfileRef.current(newUser)
-                else if (isMounted) {
-                    setProfile(null)
-                    lastFetchedUserIdRef.current = null
+                try {
+                    const newUser = session?.user ?? null
+                    if (isMounted) setUser(newUser)
+                    if (newUser) await fetchProfileRef.current(newUser)
+                    else if (isMounted) {
+                        setProfile(null)
+                        lastFetchedUserIdRef.current = null
+                    }
+                } catch (error) {
+                    console.error('Auth state change handling failed:', error)
+                    if (isMounted && !session?.user) {
+                        setProfile(null)
+                        lastFetchedUserIdRef.current = null
+                    }
                 }
             }
         )

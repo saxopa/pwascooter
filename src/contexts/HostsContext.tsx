@@ -29,19 +29,44 @@ export function HostsProvider({ children }: { children: ReactNode }) {
         }
 
         setLoading(true)
-        const { data, error: err } = await supabase
-            .from('hosts_map')
-            .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
+        setError(null)
 
-        if (err) {
-            setError(err.message)
-        } else {
-            const mappedHosts = (data ?? []) as unknown as Host[]
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 10000)
+
+        try {
+            const { data, error: viewError } = await supabase
+                .from('hosts_map')
+                .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
+                .abortSignal(controller.signal)
+
+            if (!viewError) {
+                const mappedHosts = (data ?? []) as unknown as Host[]
+                setHosts(mappedHosts)
+                hostsCache = { data: mappedHosts, fetchedAt: Date.now() }
+                return
+            }
+
+            const { data: fallbackData, error: tableError } = await supabase
+                .from('hosts')
+                .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
+                .eq('is_active', true)
+                .abortSignal(controller.signal)
+
+            if (tableError) {
+                throw new Error(viewError.message || tableError.message)
+            }
+
+            const mappedHosts = (fallbackData ?? []) as Host[]
             setHosts(mappedHosts)
             hostsCache = { data: mappedHosts, fetchedAt: Date.now() }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Impossible de charger la carte.'
+            setError(message === 'AbortError' ? 'Le chargement de la carte a expiré.' : message)
+        } finally {
+            window.clearTimeout(timeoutId)
+            setLoading(false)
         }
-
-        setLoading(false)
     }, [])
 
     useEffect(() => {
