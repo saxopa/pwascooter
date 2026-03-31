@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 
-const OAUTH_CALLBACK_TIMEOUT_MS = 8000
+const OAUTH_CALLBACK_TIMEOUT_MS = 20000
 
 function replaceWithHashRoute(targetPath: string) {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -25,8 +25,11 @@ export default function AuthCallback() {
 
   useEffect(() => {
     let isMounted = true
+    let didFinish = false
 
     async function finish(targetPath: string) {
+      if (didFinish) return
+      didFinish = true
       replaceWithHashRoute(targetPath)
       if (isMounted) {
         navigate(targetPath, { replace: true })
@@ -53,6 +56,15 @@ export default function AuthCallback() {
         }
       } catch (error) {
         console.error('OAuth callback exchange timed out:', error)
+        try {
+          const { data } = await supabase.auth.getSession()
+          if (data.session) {
+            await finish('/map')
+            return
+          }
+        } catch (sessionError) {
+          console.error('OAuth callback fallback session check failed:', sessionError)
+        }
       } finally {
         await finish('/map')
       }
