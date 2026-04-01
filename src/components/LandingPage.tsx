@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CreditCard,
+  LogIn,
   MapPin,
   ScanLine,
   ShieldCheck,
@@ -38,22 +39,47 @@ const serviceSteps = [
 
 const audienceCards = [
   {
-    title: 'Pour les clients',
+    title: 'Découvrir sans friction',
     points: [
-      'Repérer rapidement une solution de proximité.',
-      'Réserver sans appeler ni négocier sur place.',
-      'Conserver une trace horodatée du dépôt et de la restitution.',
+      'La carte reste publique pour voir les points actifs avant toute inscription.',
+      'La connexion n’arrive qu’au moment utile: réserver, suivre un dépôt, publier une place.',
+      'La promesse produit se comprend en quelques secondes, sans scroller dans tous les sens.',
     ],
     accent: 'rgba(0,206,201,0.14)',
   },
   {
-    title: 'Pour les commerçants',
+    title: 'Tracer l’opération réelle',
     points: [
-      'Publier une ou plusieurs places avec prix, capacité et recharge.',
-      'Valider le dépôt par code ou scanner sans outil externe.',
-      'Suivre les statuts, créneaux et clôtures depuis un tableau de bord unique.',
+      'Créneau horodaté, code de validation, statut métier et expiration automatique.',
+      'Le commerçant valide la prise en charge sur place par code ou scanner.',
+      'La plateforme gère la preuve numérique, pas la garde physique à la place du commerçant.',
     ],
     accent: 'rgba(108,92,231,0.16)',
+  },
+] as const
+
+const heroFacts = [
+  'Carte publique consultable sans compte',
+  'Connexion email + Google',
+  'Validation terrain par code ou scanner',
+  'Installable sur iPhone et Android',
+] as const
+
+const trustPillars = [
+  {
+    title: 'Carte ouverte',
+    body: 'Un visiteur peut vérifier l’offre disponible avant toute création de compte.',
+    icon: <MapPin size={18} color="var(--color-accent)" />,
+  },
+  {
+    title: 'Réservation suivie',
+    body: 'Le parcours numérique crée une trace horodatée du dépôt jusqu’à la restitution.',
+    icon: <CreditCard size={18} color="var(--color-primary-light)" />,
+  },
+  {
+    title: 'Validation terrain',
+    body: 'Le commerçant garde la main sur l’acceptation réelle et la restitution physique.',
+    icon: <ShieldCheck size={18} color="var(--color-success)" />,
   },
 ] as const
 
@@ -173,31 +199,17 @@ export default function LandingPage() {
               ScootSafe
             </div>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.84rem', marginTop: 4 }}>
-              Plateforme de mise en relation pour dépôt et stationnement local de trottinettes.
+              Dépôt et stationnement de trottinettes avec preuve numérique claire.
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               className="glass-card"
-              onClick={() => navigate('/devenir-hote')}
-              style={{
-                padding: '10px 16px',
-                background: 'rgba(26,26,46,0.58)',
-                color: 'var(--color-primary-light)',
-                borderRadius: '999px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              Devenir Hôte
-            </button>
-            <button
-              className="glass-card"
               onClick={() => navigate('/map')}
               style={{
-                padding: '10px 16px',
-                background: 'rgba(26,26,46,0.72)',
+                padding: '10px 14px',
+                background: 'rgba(26,26,46,0.56)',
                 color: 'var(--color-text-primary)',
                 borderRadius: '999px',
                 cursor: 'pointer',
@@ -208,9 +220,23 @@ export default function LandingPage() {
             </button>
             <button
               className="glass-card"
+              onClick={() => navigate('/devenir-hote')}
+              style={{
+                padding: '10px 14px',
+                background: 'rgba(26,26,46,0.56)',
+                color: 'var(--color-primary-light)',
+                borderRadius: '999px',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              Devenir Hôte
+            </button>
+            <button
+              className="glass-card"
               onClick={() => navigate('/cgu')}
               style={{
-                padding: '10px 16px',
+                padding: '10px 14px',
                 background: 'rgba(26,26,46,0.58)',
                 color: 'var(--color-text-secondary)',
                 borderRadius: '999px',
@@ -221,18 +247,21 @@ export default function LandingPage() {
               CGU
             </button>
             <button
-              className="glass-card"
+              className="btn-primary"
               onClick={() => setShowAuthModal(true)}
               style={{
-                padding: '10px 16px',
-                background: 'rgba(26,26,46,0.78)',
-                color: 'var(--color-text-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 18px',
                 borderRadius: '999px',
                 cursor: 'pointer',
-                fontWeight: 700,
+                fontWeight: 800,
+                boxShadow: '0 18px 40px rgba(108,92,231,0.28)',
               }}
             >
-              Connexion
+              <LogIn size={16} />
+              Connexion / Inscription
             </button>
           </div>
         </header>
@@ -267,25 +296,29 @@ export default function LandingPage() {
 
             <div>
               <h1 style={{ fontSize: 'clamp(2.8rem, 8vw, 5.3rem)', lineHeight: 0.94, letterSpacing: '-0.07em', fontWeight: 900 }}>
-                Donnez à la
+                La connexion ne doit jamais
                 <span className="text-gradient" style={{ display: 'block' }}>
-                  trottinette urbaine
+                  cacher la valeur du service
                 </span>
-                un vrai point d’arrivée.
+                avant la carte.
               </h1>
               <p style={{ marginTop: 18, color: 'var(--color-text-secondary)', fontSize: '1rem', maxWidth: 620, lineHeight: 1.7 }}>
-                ScootSafe aide un visiteur à trouver une solution de proximité, puis transforme cette découverte en réservation suivie, horodatée et validée sur place. La plateforme référence les offres, gère le parcours numérique et la traçabilité. La prestation physique reste exécutée par le commerçant qui accepte la prise en charge.
+                ScootSafe montre d’abord les points disponibles, puis transforme cette découverte en réservation horodatée, suivie et validée sur place. La carte reste publique. Le compte sert uniquement quand l’utilisateur décide d’agir.
               </p>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              <button className="btn-primary" onClick={() => navigate('/map')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                Explorer la carte sans compte
+              <button
+                className="btn-primary"
+                onClick={() => setShowAuthModal(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 18px 44px rgba(108,92,231,0.3)' }}
+              >
+                Se connecter maintenant
                 <ArrowRight size={17} />
               </button>
               <button
                 className="glass-card"
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => navigate('/map')}
                 style={{
                   padding: '14px 22px',
                   background: 'rgba(255,255,255,0.06)',
@@ -294,23 +327,29 @@ export default function LandingPage() {
                   fontWeight: 700,
                 }}
               >
-                Créer un compte
+                Explorer la carte sans compte
+              </button>
+              <button
+                className="glass-card"
+                onClick={() => navigate('/devenir-hote')}
+                style={{
+                  padding: '14px 22px',
+                  background: 'rgba(255,255,255,0.04)',
+                  color: 'var(--color-primary-light)',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                }}
+              >
+                Je suis commerçant
               </button>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                Connexion email + Google
-              </span>
-              <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                CGU à accepter avant inscription
-              </span>
-              <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                Validation par code ou scanner
-              </span>
-              <span className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
-                Installable iPhone et Android
-              </span>
+              {heroFacts.map((fact) => (
+                <span key={fact} className="glass-card" style={{ padding: '10px 12px', color: 'var(--color-text-secondary)', fontSize: '0.84rem' }}>
+                  {fact}
+                </span>
+              ))}
             </div>
 
             {oauthError && (
@@ -341,34 +380,42 @@ export default function LandingPage() {
           <div
             className="glass-card"
             style={{
-              padding: 22,
-              background: 'linear-gradient(180deg, rgba(20,22,34,0.92), rgba(10,12,20,0.96))',
+              padding: 24,
+              background: 'linear-gradient(180deg, rgba(20,22,34,0.94), rgba(10,12,20,0.98))',
               display: 'grid',
-              gap: 16,
+              gap: 18,
             }}
           >
             <div
               style={{
                 display: 'grid',
                 gap: 10,
-                padding: '16px 18px',
+                padding: '18px 18px',
                 borderRadius: 'var(--radius-lg)',
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'linear-gradient(135deg, rgba(108,92,231,0.24), rgba(0,206,201,0.12))',
+                border: '1px solid rgba(255,255,255,0.1)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)' }}>
-                    Parcours public
+                  <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.7)' }}>
+                    Commencer en 30 secondes
                   </div>
-                  <strong style={{ display: 'block', marginTop: 6, fontSize: '1.05rem' }}>Voir les offres avant de s’inscrire</strong>
+                  <strong style={{ display: 'block', marginTop: 6, fontSize: '1.15rem' }}>Le bon ordre: voir, décider, se connecter.</strong>
                 </div>
                 <Sparkles size={18} color="var(--color-accent)" />
               </div>
-              <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6, fontSize: '0.92rem' }}>
-                La carte reste consultable sans session. Le compte devient nécessaire uniquement au moment de réserver, de publier une place ou de suivre des opérations horodatées.
+              <p style={{ color: 'rgba(255,255,255,0.82)', lineHeight: 1.6, fontSize: '0.94rem' }}>
+                La landing doit pousser un visiteur soit vers la carte publique, soit vers la connexion, sans l’égarer dans trop de sections avant le premier clic utile.
               </p>
+              <button
+                className="btn-primary"
+                onClick={() => setShowAuthModal(true)}
+                style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+              >
+                <LogIn size={16} />
+                Ouvrir la connexion
+              </button>
             </div>
 
             <div style={{ display: 'grid', gap: 12 }}>
@@ -394,38 +441,31 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div
-              style={{
-                padding: '18px 18px 20px',
-                borderRadius: 'var(--radius-lg)',
-                background: 'linear-gradient(135deg, rgba(108,92,231,0.22), rgba(0,206,201,0.12))',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
-              <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--color-text-muted)' }}>
-                Positionnement juridique
-              </div>
-              <div style={{ marginTop: 10, fontWeight: 700, fontSize: '1.1rem' }}>
-                ScootSafe orchestre la mise en relation et la preuve numérique.
-              </div>
-              <p style={{ marginTop: 10, color: 'var(--color-text-secondary)', lineHeight: 1.6, fontSize: '0.9rem' }}>
-                La garde effective, la surveillance, les assurances métier, l’acceptation ou le refus de prise en charge et la restitution relèvent du commerçant référencé, dans les limites prévues par les CGU et la loi applicable.
-              </p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {trustPillars.map((pillar) => (
+                <div key={pillar.title} className="glass-card" style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '20px 1fr', gap: 12 }}>
+                  <div>{pillar.icon}</div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: 4 }}>{pillar.title}</div>
+                    <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.55, fontSize: '0.88rem' }}>{pillar.body}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         <section style={{ display: 'grid', gap: 26 }}>
           <SectionTitle
-            eyebrow="Mode d’emploi"
-            title="Le service doit se comprendre immédiatement"
-            body="La page d’accueil expose désormais le rôle de chaque partie, le moment où le compte devient requis, et le fait que la carte reste une vitrine consultable publiquement pour rassurer un visiteur avant inscription."
+            eyebrow="Promesse"
+            title="Une landing plus courte, plus lisible, plus orientée action"
+            body="Au lieu d’empiler des explications longues, la page met en avant les décisions utiles: découvrir l’offre, se connecter, comprendre qui fait quoi dans l’exécution réelle du service."
           />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
             {audienceCards.map((card) => (
               <div key={card.title} className="glass-card" style={{ padding: '20px 18px', background: card.accent }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  {card.title.includes('clients') ? <Store size={18} color="var(--color-accent)" /> : <Building2 size={18} color="var(--color-primary-light)" />}
+                  {card.title.includes('Découvrir') ? <Store size={18} color="var(--color-accent)" /> : <Building2 size={18} color="var(--color-primary-light)" />}
                   <strong>{card.title}</strong>
                 </div>
                 <div style={{ display: 'grid', gap: 10 }}>
@@ -442,30 +482,30 @@ export default function LandingPage() {
 
         <section style={{ display: 'grid', gap: 24 }}>
           <SectionTitle
-            eyebrow="Contrôle métier"
-            title="Le flux ne se contente plus d’être joli, il devient traçable"
-            body="Les réservations disposent d’un créneau affiché côté client et côté commerçant, d’un code de validation présenté sur place, d’une expiration automatique des pending, de règles d’annulation liées à l’heure de début et d’un journal d’audit des transitions de statut côté base."
+            eyebrow="Cadre clair"
+            title="Ce que ScootSafe fait, et ce que ScootSafe ne fait pas"
+            body="Le service référence les offres, gère la réservation et conserve une trace numérique. La garde matérielle, la surveillance et la restitution restent du ressort du commerçant qui prend physiquement en charge la trottinette."
           />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <div className="glass-card" style={{ padding: '18px 16px' }}>
               <CreditCard size={18} color="var(--color-primary-light)" />
               <div style={{ marginTop: 10, fontWeight: 800 }}>Réservation horodatée</div>
               <p style={{ marginTop: 8, color: 'var(--color-text-secondary)', lineHeight: 1.55, fontSize: '0.9rem' }}>
-                Le client voit désormais de quelle heure à quelle heure le créneau est réservé.
+                Le client voit le créneau, le statut et son point d’arrivée avant de se déplacer.
               </p>
             </div>
             <div className="glass-card" style={{ padding: '18px 16px' }}>
               <TimerReset size={18} color="var(--color-warning)" />
-              <div style={{ marginTop: 10, fontWeight: 800 }}>Pending auto-expiré</div>
+              <div style={{ marginTop: 10, fontWeight: 800 }}>Expiration automatique</div>
               <p style={{ marginTop: 8, color: 'var(--color-text-secondary)', lineHeight: 1.55, fontSize: '0.9rem' }}>
-                Une réservation jamais présentée sur place ne reste pas bloquée indéfiniment dans la capacité.
+                Une réservation non présentée ne doit pas bloquer la capacité plus longtemps que nécessaire.
               </p>
             </div>
             <div className="glass-card" style={{ padding: '18px 16px' }}>
               <ShieldCheck size={18} color="var(--color-success)" />
-              <div style={{ marginTop: 10, fontWeight: 800 }}>Validation par présentation</div>
+              <div style={{ marginTop: 10, fontWeight: 800 }}>Validation sur place</div>
               <p style={{ marginTop: 8, color: 'var(--color-text-secondary)', lineHeight: 1.55, fontSize: '0.9rem' }}>
-                Le code n’est plus visible directement côté host dans la liste, pour éviter une validation sans client.
+                Le commerçant valide la prise en charge avec le client présent, pas depuis une simple liste.
               </p>
             </div>
           </div>
@@ -474,8 +514,8 @@ export default function LandingPage() {
         <section style={{ display: 'grid', gap: 24 }}>
           <SectionTitle
             eyebrow="Questions fréquentes"
-            title="Les réponses qu’un visiteur, un commerçant ou un juriste poseront vite"
-            body="Cette section allonge volontairement la page et répond aux objections les plus probables avant même le premier clic sur l’authentification."
+            title="Les objections les plus probables avant la connexion"
+            body="La FAQ reste présente, mais elle passe après les CTA principaux pour ne pas diluer l’entrée dans le produit."
           />
           <div style={{ display: 'grid', gap: 12 }}>
             {faqItems.map((item) => (
@@ -491,20 +531,34 @@ export default function LandingPage() {
           className="glass-card"
           style={{
             padding: '24px 22px',
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
+            background: 'linear-gradient(135deg, rgba(108,92,231,0.2), rgba(0,206,201,0.08))',
             display: 'grid',
             gap: 16,
           }}
         >
           <SectionTitle
-            eyebrow="Cadre"
-            title="Un visiteur doit comprendre avant de cliquer sur créer un compte"
-            body="La carte publique sert l’acquisition. L’adhésion aux CGU intervient avant toute inscription. Les CGU détaillent le rôle de la plateforme, la place du commerçant dans l’exécution réelle du service et les limites de responsabilité applicables."
+            eyebrow="Dernier Choix"
+            title="Voir l’offre ou ouvrir la connexion: les deux chemins sont immédiats"
+            body="La landing doit conclure proprement: soit l’utilisateur explore la carte, soit il ouvre la connexion sans avoir à remonter la page ni chercher le bon bouton."
           />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <button className="btn-primary" onClick={() => navigate('/map')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              Voir la carte maintenant
+            <button className="btn-primary" onClick={() => setShowAuthModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <LogIn size={16} />
+              Connexion / Inscription
               <ArrowRight size={17} />
+            </button>
+            <button
+              className="glass-card"
+              onClick={() => navigate('/map')}
+              style={{
+                padding: '14px 18px',
+                background: 'rgba(255,255,255,0.06)',
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              Voir la carte maintenant
             </button>
             <button
               className="glass-card"
@@ -531,19 +585,6 @@ export default function LandingPage() {
               }}
             >
               Lire les CGU
-            </button>
-            <button
-              className="glass-card"
-              onClick={() => setShowAuthModal(true)}
-              style={{
-                padding: '14px 18px',
-                background: 'rgba(108,92,231,0.18)',
-                color: 'var(--color-primary-light)',
-                cursor: 'pointer',
-                fontWeight: 700,
-              }}
-            >
-              Ouvrir l’inscription
             </button>
           </div>
           <LegalLinks compact align="left" />
