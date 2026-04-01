@@ -13,7 +13,6 @@ const corsHeaders = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -40,17 +39,20 @@ function computeAmountInCents(pricePerHour: number, startTimeIso: string, endTim
   return Math.round(total * 100);
 }
 
+function extractBearerToken(authHeader: string | null) {
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+}
+
 async function getActorUser(authHeader: string | null) {
-  if (!authHeader) {
+  const token = extractBearerToken(authHeader);
+
+  if (!token) {
     throw new Error("AUTH_REQUIRED");
   }
 
-  const client = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
-
-  const { data, error } = await client.auth.getUser();
+  const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) {
     throw new Error("AUTH_REQUIRED");
   }
