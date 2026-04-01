@@ -12,38 +12,82 @@ type InvokeOptions = {
   signal?: AbortSignal
 }
 
-async function getAccessToken() {
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+function isUserAccessToken(token: string | null | undefined) {
+  return Boolean(
+    token &&
+    token.startsWith('eyJ') &&
+    token !== supabaseAnonKey &&
+    token.split('.').length === 3 &&
+    token.length > 100,
+  )
+}
+
+async function waitForAuthInitialization(timeoutMs = 1200) {
+  await new Promise<void>((resolve) => {
+    let settled = false
+    let unsubscribe: (() => void) | null = null
+
+    const finish = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      unsubscribe?.()
+      resolve()
+    }
+
+    const timer = window.setTimeout(finish, timeoutMs)
+    const subscription = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        finish()
+      }
+    })
+    unsubscribe = () => subscription.data.subscription.unsubscribe()
+  })
+}
+
+async function readCurrentSessionToken() {
   const { data, error } = await supabase.auth.getSession()
 
   if (error) {
     throw new Error('AUTH_SESSION_UNAVAILABLE')
   }
 
-  let session = data.session
+  return data.session?.access_token ?? null
+}
 
-  if (!session?.access_token) {
-    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
-    if (refreshError) {
-      throw new Error('AUTH_SESSION_EXPIRED')
-    }
-    session = refreshed.session
+async function getAccessToken() {
+  await waitForAuthInitialization()
+
+  let accessToken = await readCurrentSessionToken()
+  if (isUserAccessToken(accessToken)) {
+    return accessToken as string
   }
 
-  if (!session?.access_token) {
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
     throw new Error('AUTH_SESSION_EXPIRED')
   }
 
-  return session.access_token
+  accessToken = await readCurrentSessionToken()
+  if (isUserAccessToken(accessToken)) {
+    return accessToken as string
+  }
+
+  return refreshAccessToken()
 }
 
 async function refreshAccessToken() {
   const { data, error } = await supabase.auth.refreshSession()
 
-  if (error || !data.session?.access_token) {
+  const accessToken = data.session?.access_token ?? null
+
+  if (error || !isUserAccessToken(accessToken)) {
     throw new Error('AUTH_SESSION_EXPIRED')
   }
 
-  return data.session.access_token
+  return accessToken as string
 }
 
 async function postFunction(
@@ -52,7 +96,6 @@ async function postFunction(
   options: InvokeOptions,
 ) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
   const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
