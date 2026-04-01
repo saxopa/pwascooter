@@ -4,8 +4,8 @@ import {
   useStripe,
   useElements
 } from '@stripe/react-stripe-js'
-import { supabase } from '../lib/supabaseClient'
 import { Loader2 } from 'lucide-react'
+import { invokeAuthedFunction } from '../lib/invokeAuthedFunction'
 
 export interface ConfirmedBookingPayload {
   bookingId: string
@@ -56,7 +56,11 @@ export default function CheckoutForm({ paymentIntentId, onSuccess }: CheckoutFor
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-        const { data, error: confirmError } = await supabase.functions.invoke('confirm-booking-payment', {
+        const { data, error: confirmError } = await invokeAuthedFunction<{
+          ok?: boolean
+          bookingId?: string
+          pickupCode?: string | null
+        }>('confirm-booking-payment', {
           body: { paymentIntentId },
           signal: controller.signal,
         })
@@ -65,7 +69,11 @@ export default function CheckoutForm({ paymentIntentId, onSuccess }: CheckoutFor
 
         if (confirmError || !data?.ok || !data?.bookingId) {
           console.error('Erreur de confirmation de réservation après paiement:', confirmError ?? data)
-          setMessage('Paiement réussi mais réservation non confirmée. Contactez le support si le débit apparaît.')
+          if (confirmError?.message?.includes('AUTH_SESSION')) {
+            setMessage('Paiement réussi mais la session a expiré avant la confirmation. Reconnectez-vous puis vérifiez vos réservations.')
+          } else {
+            setMessage('Paiement réussi mais réservation non confirmée. Contactez le support si le débit apparaît.')
+          }
           setIsLoading(false)
         } else {
           onSuccess({

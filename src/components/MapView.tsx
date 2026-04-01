@@ -35,6 +35,7 @@ import { useHosts } from '../contexts/HostsContext'
 import BookingCodeCard from './BookingCodeCard'
 import { resolveBookingPickupCode } from '../lib/bookingCode'
 import { sendBookingNotification } from '../lib/bookingNotifications'
+import { invokeAuthedFunction } from '../lib/invokeAuthedFunction'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
 import CheckoutForm, { type ConfirmedBookingPayload } from './CheckoutForm'
@@ -364,7 +365,10 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 8000)
 
-            const { data: intentData, error: intentError } = await supabase.functions.invoke('create-payment-intent', {
+            const { data: intentData, error: intentError } = await invokeAuthedFunction<{
+                clientSecret?: string
+                paymentIntentId?: string
+            }>('create-payment-intent', {
                 body: {
                     hostId: host.id,
                     startTime: startTime.toISOString(),
@@ -376,6 +380,10 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             clearTimeout(timeoutId)
 
             if (intentError || !intentData?.clientSecret || !intentData?.paymentIntentId) {
+                const invokeMessage = intentError?.message ?? ''
+                if (invokeMessage.includes('AUTH_SESSION')) {
+                    throw new Error('Votre session a expiré. Reconnectez-vous avant de lancer le paiement.')
+                }
                 throw new Error('Erreur lors de l’initialisation du paiement sécurisé (Stripe).')
             }
 

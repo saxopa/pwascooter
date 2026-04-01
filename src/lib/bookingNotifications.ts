@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { invokeAuthedFunction } from './invokeAuthedFunction'
 
 export type BookingNotificationEvent =
   | 'booking_created'
@@ -7,7 +7,7 @@ export type BookingNotificationEvent =
   | 'booking_cancelled'
 
 export async function sendBookingNotification(eventType: BookingNotificationEvent, bookingId: string) {
-  const { error } = await supabase.functions.invoke('booking-notifications', {
+  const { error } = await invokeAuthedFunction('booking-notifications', {
     body: { eventType, bookingId },
   })
 
