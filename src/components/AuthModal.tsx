@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X, Mail, Lock, User, LogIn, UserPlus, Building2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Building2, CheckCircle2, Lock, LogIn, Mail, ShieldCheck, User, UserPlus, X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
 type AuthMode = 'login' | 'register'
@@ -8,6 +8,12 @@ interface AuthModalProps {
     onClose: () => void
     onSuccess: () => void
 }
+
+const quickPoints = [
+    'Accès immédiat à la carte, aux réservations et au suivi.',
+    'Connexion email ou Google selon le contexte le plus simple.',
+    'Demande d’accès hôte distincte et validée manuellement.',
+] as const
 
 export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     const [mode, setMode] = useState<AuthMode>('login')
@@ -22,6 +28,33 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     const [termsAccepted, setTermsAccepted] = useState(false)
 
     const termsHref = `${window.location.origin}${import.meta.env.BASE_URL}#/cgu`
+    const submitDisabled = loading || (mode === 'register' && !termsAccepted)
+    const googleLabel = loading ? 'Redirection…' : 'Continuer avec Google'
+    const submitLabel = mode === 'login'
+        ? (loading ? 'Connexion…' : 'Se connecter')
+        : (loading ? 'Création…' : 'Créer mon compte')
+
+    const helperCopy = useMemo(() => {
+        if (mode === 'login') {
+            return 'Retrouve tes réservations, ton suivi et tes accès sans repasser par la carte.'
+        }
+
+        if (isHost) {
+            return 'Tu crées un compte standard et ta demande d’accès pro part ensuite en validation manuelle.'
+        }
+
+        return 'Le compte utilisateur sert uniquement quand tu veux réserver, suivre un dépôt ou gérer ton historique.'
+    }, [isHost, mode])
+
+    function resetTransientState(nextMode: AuthMode) {
+        setMode(nextMode)
+        setError(null)
+        setMessage(null)
+        if (nextMode === 'login') {
+            setIsHost(false)
+            setCompanyName('')
+        }
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -40,6 +73,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                     role: 'user',
                     terms_accepted_at: new Date().toISOString(),
                 }
+
                 if (isHost && companyName.trim()) {
                     metadata.company_name = companyName.trim()
                     metadata.requested_role = 'host'
@@ -51,8 +85,14 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                     password,
                     options: { data: metadata },
                 })
+
                 if (signUpError) throw signUpError
-                setMessage('Compte créé ! Vérifie ta boîte mail pour confirmer ton adresse.')
+
+                setMessage(
+                    isHost
+                        ? 'Compte créé. Vérifie ton email pour confirmer ton adresse, puis nous traiterons ta demande d’accès hôte.'
+                        : 'Compte créé. Vérifie ton email pour confirmer ton adresse.'
+                )
             } else {
                 const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
                 if (signInError) throw signInError
@@ -98,6 +138,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                 },
             },
         })
+
         if (error) {
             setError(error.message)
             setLoading(false)
@@ -105,7 +146,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     }
 
     const GoogleIcon = () => (
-        <svg width="18" height="18" viewBox="0 0 48 48">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
             <path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.003 24.003 0 0 0 0 21.56l7.98-6.19z" />
@@ -115,292 +156,386 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
 
     const inputStyle: React.CSSProperties = {
         width: '100%',
-        padding: '12px 14px 12px 40px',
-        background: 'rgba(255,255,255,0.06)',
+        padding: '13px 14px 13px 42px',
+        background: 'rgba(9,11,20,0.7)',
         border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: '14px',
         color: 'var(--color-text-primary)',
-        fontSize: '0.95rem',
+        fontSize: '0.96rem',
         outline: 'none',
-        transition: 'border-color 0.2s',
+        transition: 'border-color 0.2s, background 0.2s',
         fontFamily: 'var(--font-sans)',
     }
 
     return (
         <>
-            {/* Overlay */}
             <div
                 onClick={onClose}
                 style={{
-                    position: 'fixed', inset: 0,
-                    background: 'rgba(0,0,0,0.65)',
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(3,5,12,0.78)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
                     zIndex: 2000,
                     animation: 'fade-in 0.2s ease forwards',
                 }}
             />
 
-            {/* Modal */}
             <div
-                className="glass-card"
                 style={{
                     position: 'fixed',
-                    bottom: 0, left: 0, right: 0,
+                    inset: 'auto 0 0',
                     zIndex: 2001,
-                    padding: '28px 24px',
-                    paddingBottom: 'max(28px, env(safe-area-inset-bottom))',
-                    borderTopLeftRadius: 'var(--radius-xl)',
-                    borderTopRightRadius: 'var(--radius-xl)',
-                    borderBottomLeftRadius: 0,
-                    borderBottomRightRadius: 0,
-                    animation: 'slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                    maxHeight: '92dvh',
-                    overflowY: 'auto',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    padding: '20px 14px max(18px, env(safe-area-inset-bottom))',
                 }}
             >
-                {/* Close */}
-                <button
-                    onClick={onClose}
-                    aria-label="Fermer"
+                <div
+                    className="glass-card"
                     style={{
-                        position: 'absolute', top: 16, right: 16,
-                        background: 'rgba(255,255,255,0.08)', border: 'none',
-                        borderRadius: '50%', width: 32, height: 32,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', color: 'var(--color-text-secondary)',
+                        position: 'relative',
+                        width: 'min(560px, 100%)',
+                        padding: '24px 20px 22px',
+                        background: 'linear-gradient(180deg, rgba(17,18,29,0.96), rgba(8,10,18,0.98))',
+                        borderTopLeftRadius: '30px',
+                        borderTopRightRadius: '30px',
+                        borderBottomLeftRadius: '24px',
+                        borderBottomRightRadius: '24px',
+                        animation: 'slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        maxHeight: '92dvh',
+                        overflowY: 'auto',
                     }}
                 >
-                    <X size={18} />
-                </button>
+                    <button
+                        onClick={onClose}
+                        aria-label="Fermer"
+                        style={{
+                            position: 'absolute',
+                            top: 16,
+                            right: 16,
+                            background: 'rgba(255,255,255,0.08)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: 34,
+                            height: 34,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: 'var(--color-text-secondary)',
+                        }}
+                    >
+                        <X size={18} />
+                    </button>
 
-                {/* Handle */}
-                <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--color-text-muted)', margin: '0 auto 20px' }} />
+                    <div style={{ width: 42, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.16)', margin: '0 auto 18px' }} />
 
-                {/* Title */}
-                <h2 className="text-gradient" style={{ fontSize: '1.4rem', fontWeight: 800, textAlign: 'center', marginBottom: 6 }}>
-                    {mode === 'login' ? 'Connexion' : 'Créer un compte'}
-                </h2>
-                <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: 24 }}>
-                    {mode === 'login' ? 'Accède à tes réservations ScootSafe' : 'Rejoins ScootSafe gratuitement'}
-                </p>
+                    <div
+                        style={{
+                            display: 'grid',
+                            gap: 16,
+                            padding: '16px 16px 18px',
+                            marginBottom: 18,
+                            borderRadius: '22px',
+                            background: 'linear-gradient(135deg, rgba(108,92,231,0.24), rgba(0,206,201,0.1))',
+                            border: '1px solid rgba(255,255,255,0.09)',
+                        }}
+                    >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, width: 'fit-content', padding: '6px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', color: 'var(--color-text-primary)', fontSize: '0.76rem', fontWeight: 800 }}>
+                            <ShieldCheck size={14} color="var(--color-accent)" />
+                            Entrée sécurisée ScootSafe
+                        </div>
 
-                <label
-                    style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
-                        padding: '12px 14px',
-                        marginBottom: 18,
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${termsAccepted ? 'rgba(0,206,201,0.22)' : 'rgba(255,255,255,0.08)'}`,
-                        cursor: 'pointer',
-                    }}
-                >
-                    <input
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={(event) => setTermsAccepted(event.target.checked)}
-                        style={{ marginTop: 2 }}
-                    />
-                    <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.83rem', lineHeight: 1.5 }}>
-                        J’ai lu et j’accepte les{' '}
-                        <a href={termsHref} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary-light)', fontWeight: 700 }}>
-                            CGU de ScootSafe
-                        </a>
-                        . Cette acceptation est requise avant toute création de compte ou première connexion via Google.
-                    </span>
-                </label>
+                        <div>
+                            <h2 style={{ fontSize: '1.55rem', lineHeight: 1.02, letterSpacing: '-0.05em', fontWeight: 900 }}>
+                                {mode === 'login' ? 'Reprendre ton accès sans détour.' : 'Créer un accès clair dès le premier écran.'}
+                            </h2>
+                            <p style={{ marginTop: 10, color: 'rgba(255,255,255,0.82)', fontSize: '0.93rem', lineHeight: 1.6 }}>
+                                {helperCopy}
+                            </p>
+                        </div>
 
-                {/* Google OAuth */}
-                <button
-                    onClick={handleGoogle}
-                    style={{
-                        width: '100%', padding: '12px',
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'var(--color-text-primary)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                        cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem',
-                        marginBottom: 20,
-                        transition: 'background 0.2s',
-                    }}
-                >
-                    {loading ? (
-                        <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--color-primary-light)', borderRadius: '50%', animation: 'spin 0.6s linear infinite', display: 'inline-block' }} />
-                    ) : (
-                        <GoogleIcon />
-                    )}
-                    {loading ? 'Redirection…' : 'Continuer avec Google'}
-                </button>
+                        <div style={{ display: 'grid', gap: 8 }}>
+                            {quickPoints.map((point) => (
+                                <div key={point} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                    <CheckCircle2 size={16} color="var(--color-accent)" style={{ marginTop: 2, flexShrink: 0 }} />
+                                    <span style={{ color: 'rgba(255,255,255,0.78)', fontSize: '0.86rem', lineHeight: 1.5 }}>{point}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
-                {/* Divider */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>ou par email</span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                    {/* Host toggle (register only) */}
-                    {mode === 'register' && (
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                            gap: 8,
+                            padding: 6,
+                            marginBottom: 18,
+                            borderRadius: '18px',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                        }}
+                    >
                         <button
                             type="button"
-                            onClick={() => setIsHost(v => !v)}
+                            onClick={() => resetTransientState('login')}
                             style={{
-                                display: 'flex', alignItems: 'center', gap: 10,
-                                padding: '10px 14px',
-                                background: isHost ? 'rgba(108,92,231,0.15)' : 'rgba(255,255,255,0.04)',
-                                border: `1px solid ${isHost ? 'rgba(108,92,231,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                                borderRadius: 'var(--radius-sm)',
-                                color: isHost ? 'var(--color-primary-light)' : 'var(--color-text-secondary)',
-                                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
-                                transition: 'all 0.2s',
+                                padding: '12px 12px',
+                                borderRadius: '14px',
+                                border: 'none',
+                                background: mode === 'login' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                                color: mode === 'login' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                                fontWeight: 800,
+                                cursor: 'pointer',
                             }}
                         >
-                            <Building2 size={16} />
-                            Je veux demander l’accès hôte
-                            <span style={{
-                                marginLeft: 'auto',
-                                width: 36, height: 20, borderRadius: 10,
-                                background: isHost ? 'var(--color-primary)' : 'rgba(255,255,255,0.1)',
-                                position: 'relative', transition: 'background 0.2s',
-                            }}>
-                                <span style={{
-                                    position: 'absolute',
-                                    top: 2, left: isHost ? 18 : 2,
-                                    width: 16, height: 16, borderRadius: '50%',
-                                    background: 'white',
-                                    transition: 'left 0.2s',
-                                }} />
-                            </span>
+                            Connexion
                         </button>
-                    )}
-
-                    {/* Company name (host register only) */}
-                    {mode === 'register' && isHost && (
-                        <div style={{ position: 'relative' }}>
-                            <Building2 size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
-                            <input
-                                type="text"
-                                placeholder="Nom de l'entreprise"
-                                value={companyName}
-                                onChange={e => setCompanyName(e.target.value)}
-                                style={inputStyle}
-                            />
-                        </div>
-                    )}
-
-                    {mode === 'register' && isHost && (
-                        <p style={{ margin: '-4px 2px 0', color: 'var(--color-text-muted)', fontSize: '0.78rem', lineHeight: 1.5 }}>
-                            La création du compte reste immédiate, mais l’accès hôte n’est activé qu’après validation manuelle.
-                        </p>
-                    )}
-
-                    {/* Nom (register only) */}
-                    {mode === 'register' && (
-                        <div style={{ position: 'relative' }}>
-                            <User size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
-                            <input
-                                type="text"
-                                placeholder="Ton prénom"
-                                value={nom}
-                                onChange={e => setNom(e.target.value)}
-                                required
-                                style={inputStyle}
-                            />
-                        </div>
-                    )}
-
-                    {/* Email */}
-                    <div style={{ position: 'relative' }}>
-                        <Mail size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
-                        <input
-                            type="email"
-                            placeholder="ton@email.com"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            required
-                            style={inputStyle}
-                        />
+                        <button
+                            type="button"
+                            onClick={() => resetTransientState('register')}
+                            style={{
+                                padding: '12px 12px',
+                                borderRadius: '14px',
+                                border: 'none',
+                                background: mode === 'register' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                                color: mode === 'register' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Créer un compte
+                        </button>
                     </div>
 
-                    {/* Password */}
-                    <div style={{ position: 'relative' }}>
-                        <Lock size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                    <label
+                        style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 10,
+                            padding: '12px 14px',
+                            marginBottom: 16,
+                            borderRadius: '16px',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${termsAccepted ? 'rgba(0,206,201,0.28)' : 'rgba(255,255,255,0.08)'}`,
+                            cursor: 'pointer',
+                        }}
+                    >
                         <input
-                            type="password"
-                            placeholder="Mot de passe (6+ caractères)"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            required
-                            minLength={6}
-                            style={inputStyle}
+                            type="checkbox"
+                            checked={termsAccepted}
+                            onChange={(event) => setTermsAccepted(event.target.checked)}
+                            style={{ marginTop: 2 }}
                         />
-                    </div>
+                        <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
+                            J’ai lu et j’accepte les{' '}
+                            <a href={termsHref} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary-light)', fontWeight: 700 }}>
+                                CGU de ScootSafe
+                            </a>
+                            . Cette validation reste requise avant toute création de compte ou première connexion Google.
+                        </span>
+                    </label>
 
-                    {/* Error */}
-                    {error && (
-                        <div style={{
-                            padding: '10px 14px',
-                            background: 'rgba(255,107,107,0.15)',
-                            border: '1px solid rgba(255,107,107,0.25)',
-                            borderRadius: 'var(--radius-sm)',
-                            color: 'var(--color-danger)',
-                            fontSize: '0.85rem',
-                        }}>
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Success message */}
-                    {message && (
-                        <div style={{
-                            padding: '10px 14px',
-                            background: 'rgba(0,184,148,0.15)',
-                            border: '1px solid rgba(0,184,148,0.25)',
-                            borderRadius: 'var(--radius-sm)',
-                            color: 'var(--color-success)',
-                            fontSize: '0.85rem',
-                        }}>
-                            {message}
-                        </div>
-                    )}
-
-                    {/* Submit */}
                     <button
-                        type="submit"
-                        className="btn-primary"
-                        disabled={loading || (mode === 'register' && !termsAccepted)}
+                        onClick={handleGoogle}
+                        disabled={loading}
                         style={{
                             width: '100%',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                            opacity: loading || (mode === 'register' && !termsAccepted) ? 0.7 : 1,
-                            cursor: loading || (mode === 'register' && !termsAccepted) ? 'not-allowed' : 'pointer',
+                            padding: '13px 16px',
+                            background: '#f8fafc',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: '16px',
+                            color: '#0f172a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 10,
+                            cursor: loading ? 'wait' : 'pointer',
+                            fontWeight: 800,
+                            fontSize: '0.94rem',
+                            marginBottom: 18,
+                            boxShadow: '0 18px 34px rgba(15,23,42,0.22)',
+                            opacity: loading ? 0.85 : 1,
+                        }}
+                    >
+                        {loading ? (
+                            <span style={{ width: 18, height: 18, border: '2px solid rgba(15,23,42,0.15)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 0.6s linear infinite', display: 'inline-block' }} />
+                        ) : (
+                            <GoogleIcon />
+                        )}
+                        {googleLabel}
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>ou par email</span>
+                        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                    </div>
+
+                    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
+                        {mode === 'register' && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsHost(false)}
+                                    style={{
+                                        padding: '14px 14px',
+                                        display: 'grid',
+                                        gap: 6,
+                                        textAlign: 'left',
+                                        borderRadius: '16px',
+                                        border: isHost ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,206,201,0.28)',
+                                        background: isHost ? 'rgba(255,255,255,0.04)' : 'rgba(0,206,201,0.12)',
+                                        color: isHost ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <User size={18} color={isHost ? 'var(--color-text-secondary)' : 'var(--color-accent)'} />
+                                    <strong style={{ fontSize: '0.92rem' }}>Compte utilisateur</strong>
+                                    <span style={{ fontSize: '0.77rem', lineHeight: 1.45 }}>Réserver, suivre un dépôt, consulter l’historique.</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsHost(true)}
+                                    style={{
+                                        padding: '14px 14px',
+                                        display: 'grid',
+                                        gap: 6,
+                                        textAlign: 'left',
+                                        borderRadius: '16px',
+                                        border: isHost ? '1px solid rgba(108,92,231,0.34)' : '1px solid rgba(255,255,255,0.08)',
+                                        background: isHost ? 'rgba(108,92,231,0.16)' : 'rgba(255,255,255,0.04)',
+                                        color: isHost ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <Building2 size={18} color={isHost ? 'var(--color-primary-light)' : 'var(--color-text-secondary)'} />
+                                    <strong style={{ fontSize: '0.92rem' }}>Demande hôte</strong>
+                                    <span style={{ fontSize: '0.77rem', lineHeight: 1.45 }}>Publier des places après validation manuelle.</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {mode === 'register' && isHost && (
+                            <div style={{ display: 'grid', gap: 10, padding: '14px 14px', borderRadius: '16px', background: 'rgba(108,92,231,0.08)', border: '1px solid rgba(108,92,231,0.16)' }}>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                    <ShieldCheck size={16} color="var(--color-primary-light)" style={{ marginTop: 2, flexShrink: 0 }} />
+                                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
+                                        La création du compte reste immédiate, mais l’accès hôte ne s’active qu’après validation manuelle.
+                                    </p>
+                                </div>
+                                <div style={{ position: 'relative' }}>
+                                    <Building2 size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                                    <input
+                                        type="text"
+                                        placeholder="Nom du commerce ou de l’entreprise"
+                                        value={companyName}
+                                        onChange={(e) => setCompanyName(e.target.value)}
+                                        autoComplete="organization"
+                                        style={inputStyle}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {mode === 'register' && (
+                            <div style={{ position: 'relative' }}>
+                                <User size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                                <input
+                                    type="text"
+                                    placeholder="Prénom ou nom d’usage"
+                                    value={nom}
+                                    onChange={(e) => setNom(e.target.value)}
+                                    required
+                                    autoComplete="given-name"
+                                    style={inputStyle}
+                                />
+                            </div>
+                        )}
+
+                        <div style={{ position: 'relative' }}>
+                            <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                            <input
+                                type="email"
+                                placeholder="ton@email.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                autoComplete="email"
+                                style={inputStyle}
+                            />
+                        </div>
+
+                        <div style={{ position: 'relative' }}>
+                            <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+                            <input
+                                type="password"
+                                placeholder={mode === 'login' ? 'Mot de passe' : 'Mot de passe (6+ caractères)'}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                minLength={6}
+                                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                                style={inputStyle}
+                            />
+                        </div>
+
+                        {error && (
+                            <div style={{ padding: '11px 14px', background: 'rgba(255,107,107,0.14)', border: '1px solid rgba(255,107,107,0.22)', borderRadius: '14px', color: 'var(--color-danger)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                {error}
+                            </div>
+                        )}
+
+                        {message && (
+                            <div style={{ padding: '11px 14px', background: 'rgba(0,184,148,0.14)', border: '1px solid rgba(0,184,148,0.22)', borderRadius: '14px', color: 'var(--color-success)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                {message}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            className="btn-primary"
+                            disabled={submitDisabled}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                opacity: submitDisabled ? 0.7 : 1,
+                                cursor: submitDisabled ? 'not-allowed' : 'pointer',
+                                marginTop: 2,
+                            }}
+                        >
+                            {mode === 'login'
+                                ? <><LogIn size={17} /> {submitLabel}</>
+                                : <><UserPlus size={17} /> {submitLabel}</>}
+                        </button>
+                    </form>
+
+                    <button
+                        type="button"
+                        onClick={() => resetTransientState(mode === 'login' ? 'register' : 'login')}
+                        style={{
+                            marginTop: 16,
+                            width: '100%',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--color-primary-light)',
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            fontWeight: 700,
                         }}
                     >
                         {mode === 'login'
-                            ? <><LogIn size={17} /> {loading ? 'Connexion…' : 'Se connecter'}</>
-                            : <><UserPlus size={17} /> {loading ? 'Création…' : 'Créer mon compte'}</>
-                        }
+                            ? 'Pas encore de compte ? Créer un accès'
+                            : 'Déjà un compte ? Revenir à la connexion'}
                     </button>
-                </form>
-
-                {/* Toggle mode */}
-                <button
-                    onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(null); setMessage(null); setIsHost(false) }}
-                    style={{
-                        marginTop: 18, width: '100%', background: 'none', border: 'none',
-                        color: 'var(--color-primary-light)', fontSize: '0.85rem',
-                        cursor: 'pointer', fontWeight: 600,
-                    }}
-                >
-                    {mode === 'login'
-                        ? "Pas encore de compte ? Créer un compte"
-                        : "Déjà un compte ? Se connecter"}
-                </button>
+                </div>
             </div>
         </>
     )
