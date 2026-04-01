@@ -41,12 +41,49 @@ export async function invokeAuthedFunction<T = unknown>(
   options: InvokeOptions = {},
 ) {
   const accessToken = await getAccessToken()
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-  return supabase.functions.invoke<T>(functionName, {
-    ...options,
+  const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+    method: 'POST',
     headers: {
-      ...options.headers,
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKey,
       Authorization: `Bearer ${accessToken}`,
+      ...options.headers,
     },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: options.signal,
   })
+
+  const rawText = await response.text()
+  let parsed: unknown = null
+
+  if (rawText) {
+    try {
+      parsed = JSON.parse(rawText)
+    } catch {
+      parsed = rawText
+    }
+  }
+
+  if (!response.ok) {
+    const message =
+      parsed && typeof parsed === 'object' && 'error' in parsed && typeof parsed.error === 'string'
+        ? parsed.error
+        : `Function ${functionName} failed with status ${response.status}`
+
+    return {
+      data: null as T | null,
+      error: {
+        message,
+        status: response.status,
+      },
+    }
+  }
+
+  return {
+    data: parsed as T,
+    error: null,
+  }
 }
