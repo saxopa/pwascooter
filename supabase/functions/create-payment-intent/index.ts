@@ -45,19 +45,31 @@ function extractBearerToken(authHeader: string | null) {
   return match?.[1] ?? null;
 }
 
-async function getActorUser(authHeader: string | null) {
+function decodeJwtPayload(token: string) {
+  const [, payload] = token.split(".");
+  if (!payload) {
+    throw new Error("AUTH_REQUIRED");
+  }
+
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const decoded = atob(padded);
+  return JSON.parse(decoded) as { sub?: string };
+}
+
+function getActorUserId(authHeader: string | null) {
   const token = extractBearerToken(authHeader);
 
   if (!token) {
     throw new Error("AUTH_REQUIRED");
   }
 
-  const { data, error } = await admin.auth.getUser(token);
-  if (error || !data.user) {
+  const payload = decodeJwtPayload(token);
+  if (!payload.sub) {
     throw new Error("AUTH_REQUIRED");
   }
 
-  return data.user;
+  return payload.sub;
 }
 
 Deno.serve(async (req) => {
@@ -70,7 +82,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const actor = await getActorUser(req.headers.get("Authorization"));
+    const actorUserId = getActorUserId(req.headers.get("Authorization"));
     const { hostId, startTime, endTime } = await req.json();
 
     if (!hostId || !startTime || !endTime) {
@@ -87,7 +99,7 @@ Deno.serve(async (req) => {
       throw new Error("HOST_NOT_AVAILABLE");
     }
 
-    if (host.owner_id === actor.id) {
+    if (host.owner_id === actorUserId) {
       throw new Error("SELF_BOOKING_FORBIDDEN");
     }
 
@@ -100,7 +112,7 @@ Deno.serve(async (req) => {
         enabled: true,
       },
       metadata: {
-        user_id: actor.id,
+        user_id: actorUserId,
         host_id: hostId,
         start_time: startTime,
         end_time: endTime,

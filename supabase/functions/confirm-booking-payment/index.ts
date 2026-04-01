@@ -44,19 +44,31 @@ function extractBearerToken(authHeader: string | null) {
   return match?.[1] ?? null;
 }
 
-async function getActorUser(authHeader: string | null) {
+function decodeJwtPayload(token: string) {
+  const [, payload] = token.split(".");
+  if (!payload) {
+    throw new Error("AUTH_REQUIRED");
+  }
+
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const decoded = atob(padded);
+  return JSON.parse(decoded) as { sub?: string };
+}
+
+function getActorUserId(authHeader: string | null) {
   const token = extractBearerToken(authHeader);
 
   if (!token) {
     throw new Error("AUTH_REQUIRED");
   }
 
-  const { data, error } = await admin.auth.getUser(token);
-  if (error || !data.user) {
+  const payload = decodeJwtPayload(token);
+  if (!payload.sub) {
     throw new Error("AUTH_REQUIRED");
   }
 
-  return data.user;
+  return payload.sub;
 }
 
 Deno.serve(async (req) => {
@@ -69,7 +81,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const actor = await getActorUser(req.headers.get("Authorization"));
+    const actorUserId = getActorUserId(req.headers.get("Authorization"));
     const { paymentIntentId } = await req.json();
 
     if (!paymentIntentId || typeof paymentIntentId !== "string") {
@@ -90,7 +102,7 @@ Deno.serve(async (req) => {
       throw new Error("PAYMENT_METADATA_MISSING");
     }
 
-    if (userId !== actor.id) {
+    if (userId !== actorUserId) {
       throw new Error("FORBIDDEN");
     }
 
@@ -112,7 +124,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: rpcData, error: rpcError } = await admin.rpc("book_parking_spot_paid", {
-      p_user_id: actor.id,
+      p_user_id: actorUserId,
       p_host_id: hostId,
       p_start_time: startTime,
       p_end_time: endTime,
