@@ -1,6 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState, useRef, type ReactNode } from 'react'
 import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
-import { supabase } from './lib/supabaseClient'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useHostProfile } from './contexts/HostProfileContext'
 
@@ -56,71 +55,20 @@ function AppRoutes() {
 function AppBootstrap({ onReady }: { onReady: () => void }) {
   const navigate = useNavigate()
   const { loading: profileLoading } = useHostProfile()
-  const [sessionBootstrapDone, setSessionBootstrapDone] = useState(false)
 
   useEffect(() => {
-    let isMounted = true
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+    const searchParams = new URLSearchParams(window.location.search)
+    const authCode = searchParams.get('code')
 
-    async function bootstrapSession() {
-      try {
-        const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-        const searchParams = new URLSearchParams(window.location.search)
-        const authCode = searchParams.get('code')
-
-        if (authCode) {
-          window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
-          if (isMounted) {
-            navigate('/map', { replace: true })
-          }
-        } else {
-          const hash = window.location.hash
-          const tokenFragmentIndex = hash.indexOf('#access_token=')
-
-          if (tokenFragmentIndex !== -1) {
-            const tokenFragment = hash.slice(tokenFragmentIndex + 1)
-            const tokenParams = new URLSearchParams(tokenFragment)
-            const accessToken = tokenParams.get('access_token')
-            const refreshToken = tokenParams.get('refresh_token')
-
-            if (accessToken && refreshToken) {
-              try {
-                const { error } = await supabase.auth.setSession({
-                  access_token: accessToken,
-                  refresh_token: refreshToken,
-                })
-
-                if (error) {
-                  console.error('Session bootstrap failed:', error)
-                }
-              } catch (error) {
-                console.error('Session bootstrap timed out:', error)
-              } finally {
-                window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
-                if (isMounted) {
-                  navigate('/map', { replace: true })
-                }
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('App bootstrap failed:', error)
-      } finally {
-        if (isMounted) {
-          setSessionBootstrapDone(true)
-        }
-      }
-    }
-
-    void bootstrapSession()
-
-    return () => {
-      isMounted = false
+    if (authCode) {
+      window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
+      navigate('/map', { replace: true })
     }
   }, [navigate])
 
   useEffect(() => {
-    if (sessionBootstrapDone && !profileLoading) {
+    if (!profileLoading) {
       onReady()
       return
     }
@@ -132,7 +80,7 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
     return () => {
       window.clearTimeout(fallbackTimer)
     }
-  }, [profileLoading, sessionBootstrapDone, onReady])
+  }, [profileLoading, onReady])
 
   return null
 }

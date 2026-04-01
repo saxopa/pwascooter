@@ -13,7 +13,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
         flowType: 'implicit',
-        detectSessionInUrl: false,
+        detectSessionInUrl: true,
         persistSession: true,
     },
 })

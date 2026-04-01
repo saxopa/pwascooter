@@ -6,7 +6,6 @@ import App from './App.tsx'
 import PWAManager from './components/PWAManager'
 import { HostProfileProvider } from './contexts/HostProfileContext'
 import { HostsProvider } from './contexts/HostsContext'
-import { registerSW } from 'virtual:pwa-register'
 
 import React from 'react'
 
@@ -39,31 +38,22 @@ createRoot(document.getElementById('root')!).render(
   </>,
 )
 
-if (import.meta.env.PROD) {
-  const updateSW = registerSW({
-    onNeedRefresh() {
-      // Affiche une notification de mise à jour à l'utilisateur
-      const shouldUpdate = window.confirm(
-        '📦 Une nouvelle version de ScootSafe est disponible. Mettre à jour maintenant ?'
-      )
-      if (shouldUpdate) {
-        updateSW(true)
-      }
-    },
-    onOfflineReady() {
-      console.log('[ScootSafe] Application prête pour une utilisation hors-ligne.')
-    },
-    onRegistered(registration) {
-      if (registration) {
-        // Vérifie les mises à jour toutes les heures
-        setInterval(() => {
-          registration.update()
-        }, 60 * 60 * 1000)
-      }
-    },
-    onRegisterError(error) {
-      console.error('[ScootSafe] Échec enregistrement Service Worker:', error)
-    },
-    immediate: true,
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        void registration.unregister()
+      })
+    })
+
+    if ('caches' in window) {
+      void caches.keys().then((keys) => {
+        keys.forEach((key) => {
+          if (key.includes('workbox') || key.includes('supabase-hosts-cache') || key.includes('map-tiles-cache')) {
+            void caches.delete(key)
+          }
+        })
+      })
+    }
   })
 }
