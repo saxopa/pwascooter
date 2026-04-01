@@ -36,11 +36,21 @@ async function getAccessToken() {
   return session.access_token
 }
 
-export async function invokeAuthedFunction<T = unknown>(
+async function refreshAccessToken() {
+  const { data, error } = await supabase.auth.refreshSession()
+
+  if (error || !data.session?.access_token) {
+    throw new Error('AUTH_SESSION_EXPIRED')
+  }
+
+  return data.session.access_token
+}
+
+async function postFunction(
   functionName: string,
-  options: InvokeOptions = {},
+  accessToken: string,
+  options: InvokeOptions,
 ) {
-  const accessToken = await getAccessToken()
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
@@ -65,6 +75,23 @@ export async function invokeAuthedFunction<T = unknown>(
     } catch {
       parsed = rawText
     }
+  }
+
+  return { response, parsed }
+}
+
+export async function invokeAuthedFunction<T = unknown>(
+  functionName: string,
+  options: InvokeOptions = {},
+) {
+  let accessToken = await getAccessToken()
+  let { response, parsed } = await postFunction(functionName, accessToken, options)
+
+  if (response.status === 401) {
+    accessToken = await refreshAccessToken()
+    const retry = await postFunction(functionName, accessToken, options)
+    response = retry.response
+    parsed = retry.parsed
   }
 
   if (!response.ok) {
