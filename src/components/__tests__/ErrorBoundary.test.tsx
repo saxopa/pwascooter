@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type React from 'react'
 import ErrorBoundary from '../ErrorBoundary'
 
 // Composant qui lance une erreur
-function ThrowError() {
+const ThrowError = (): React.ReactElement => {
   throw new Error('Test error')
 }
 
