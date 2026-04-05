@@ -181,6 +181,7 @@ export type Database = {
           end_time: string
           host_id: string
           id: string
+          payment_reference: string | null
           pickup_code: string
           start_time: string
           status: Database["public"]["Enums"]["booking_status"] | null
@@ -192,6 +193,7 @@ export type Database = {
           end_time: string
           host_id: string
           id?: string
+          payment_reference?: string | null
           pickup_code: string
           start_time: string
           status?: Database["public"]["Enums"]["booking_status"] | null
@@ -203,6 +205,7 @@ export type Database = {
           end_time?: string
           host_id?: string
           id?: string
+          payment_reference?: string | null
           pickup_code?: string
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"] | null
@@ -351,6 +354,17 @@ export type Database = {
         }
         Returns: Json
       }
+      book_parking_spot_paid: {
+        Args: {
+          p_end_time: string
+          p_host_id: string
+          p_payment_reference?: string
+          p_start_time: string
+          p_total_price: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
       cancel_booking: {
         Args: { p_booking_id: string }
         Returns: {
@@ -358,6 +372,7 @@ export type Database = {
           end_time: string
           host_id: string
           id: string
+          payment_reference: string | null
           pickup_code: string
           start_time: string
           status: Database["public"]["Enums"]["booking_status"] | null
@@ -378,6 +393,7 @@ export type Database = {
           end_time: string
           host_id: string
           id: string
+          payment_reference: string | null
           pickup_code: string
           start_time: string
           status: Database["public"]["Enums"]["booking_status"] | null
@@ -396,6 +412,7 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: string
       }
+      is_host_approved: { Args: { p_user_id: string }; Returns: boolean }
       log_booking_status_event: {
         Args: {
           p_actor_role: string
@@ -415,6 +432,7 @@ export type Database = {
           end_time: string
           host_id: string
           id: string
+          payment_reference: string | null
           pickup_code: string
           start_time: string
           status: Database["public"]["Enums"]["booking_status"] | null

@@ -24,7 +24,7 @@ function isUserAccessToken(token: string | null | undefined) {
   )
 }
 
-async function waitForAuthInitialization(timeoutMs = 1200) {
+async function waitForAuthInitialization(timeoutMs = 1500) {
   await new Promise<void>((resolve) => {
     let settled = false
     let unsubscribe: (() => void) | null = null
@@ -60,11 +60,19 @@ async function readCurrentSessionToken() {
 async function getAccessToken() {
   await waitForAuthInitialization()
 
+  // Try refreshing the session first to get a fresh token
+  const { data: refreshData } = await supabase.auth.refreshSession()
+  if (refreshData.session?.access_token && isUserAccessToken(refreshData.session.access_token)) {
+    return refreshData.session.access_token
+  }
+
+  // Fallback: read the current session
   let accessToken = await readCurrentSessionToken()
   if (isUserAccessToken(accessToken)) {
     return accessToken as string
   }
 
+  // Validate the user actually exists
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError || !userData.user) {
     throw new Error('AUTH_SESSION_EXPIRED')
@@ -133,7 +141,6 @@ export async function invokeAuthedFunction<T = unknown>(
   } catch (err: unknown) {
     // Session complètement invalide (refresh token expiré/supprimé)
     const errorMessage = err instanceof Error ? err.message : ''
-    console.error('[DEBUG invokeAuthedFunction] getAccessToken failed:', errorMessage)
     if (errorMessage.includes('Refresh Token Not Found') || errorMessage.includes('Invalid Refresh Token')) {
       // Forcer la déconnexion côté client pour nettoyer le state
       await supabase.auth.signOut({ scope: 'local' })
@@ -151,16 +158,13 @@ export async function invokeAuthedFunction<T = unknown>(
   let { response, parsed } = await postFunction(functionName, accessToken, options)
 
   if (response.status === 401) {
-    console.log('[DEBUG invokeAuthedFunction] Got 401, attempting refreshAccessToken...')
     try {
       accessToken = await refreshAccessToken()
-      console.log('[DEBUG invokeAuthedFunction] refreshAccessToken succeeded')
       const retry = await postFunction(functionName, accessToken, options)
       response = retry.response
       parsed = retry.parsed
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : ''
-      console.error('[DEBUG invokeAuthedFunction] refreshAccessToken failed:', errorMessage)
       if (errorMessage.includes('Refresh Token Not Found') || errorMessage.includes('Invalid Refresh Token')) {
         await supabase.auth.signOut({ scope: 'local' })
         return {

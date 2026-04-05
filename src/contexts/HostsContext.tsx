@@ -22,16 +22,12 @@ export function HostsProvider({ children }: { children: ReactNode }) {
     const hostsCacheRef = useRef<{ data: Host[]; fetchedAt: number } | null>(null)
 
     const fetchHosts = useCallback(async () => {
-        console.log('[DEBUG HostsContext] fetchHosts called, cache:', hostsCacheRef.current?.fetchedAt)
-        
         if (hostsCacheRef.current && Date.now() - hostsCacheRef.current.fetchedAt < HOSTS_CACHE_TTL) {
-            console.log('[DEBUG HostsContext] Using cache')
             setHosts(hostsCacheRef.current.data)
             setLoading(false)
             return
         }
 
-        console.log('[DEBUG HostsContext] No cache or expired, fetching from Supabase')
         setLoading(true)
         setError(null)
 
@@ -39,21 +35,16 @@ export function HostsProvider({ children }: { children: ReactNode }) {
         const timeoutId = window.setTimeout(() => controller.abort(), 10000)
 
         try {
-            console.log('[DEBUG HostsContext] Querying hosts_map view...')
             const { data, error: viewError } = await supabase
                 .from('hosts_map')
                 .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
                 .abortSignal(controller.signal)
 
-            console.log('[DEBUG HostsContext] hosts_map result:', { dataCount: data?.length, error: viewError })
-            
             if (!viewError) {
                 const mappedHosts = (data ?? []) as unknown as Host[]
-                console.log('[DEBUG HostsContext] hosts_map success, count:', mappedHosts.length)
                 setHosts(mappedHosts)
                 hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
             } else {
-                console.log('[DEBUG HostsContext] hosts_map failed, using fallback hosts table')
                 // Fallback vers la table hosts
                 const { data: fallbackData, error: tableError } = await supabase
                     .from('hosts')
@@ -62,21 +53,17 @@ export function HostsProvider({ children }: { children: ReactNode }) {
                     .abortSignal(controller.signal)
 
                 if (tableError) {
-                    console.error('[DEBUG HostsContext] Fallback also failed:', tableError)
                     throw new Error(viewError.message || tableError.message)
                 }
 
                 const mappedHosts = (fallbackData ?? []) as Host[]
-                console.log('[DEBUG HostsContext] Fallback success, count:', mappedHosts.length)
                 setHosts(mappedHosts)
                 hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
             }
         } catch (err) {
-            console.error('[DEBUG HostsContext] Error:', err)
             const message = err instanceof Error ? err.message : 'Impossible de charger la carte.'
             setError(message === 'AbortError' ? 'Le chargement de la carte a expiré.' : message)
         } finally {
-            console.log('[DEBUG HostsContext] finally - clearing timeout and setting loading false')
             window.clearTimeout(timeoutId)
             setLoading(false)
         }

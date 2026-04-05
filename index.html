@@ -17,8 +17,8 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         img-src 'self' data: blob: https://*.cartocdn.com https://*.tile.openstreetmap.org https://*.openstreetmap.org;
-        connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://nominatim.openstreetmap.org;
-        frame-src https://js.stripe.com;
+        connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://m.stripe.com https://m.stripe.network https://nominatim.openstreetmap.org;
+        frame-src https://js.stripe.com https://m.stripe.network;
         worker-src 'self' blob:;
         form-action 'self';
       "
