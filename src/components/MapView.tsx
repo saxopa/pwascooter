@@ -400,15 +400,15 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 
             if (intentError || !intentData?.clientSecret || !intentData?.paymentIntentId) {
                 const invokeMessage = intentError?.message ?? ''
-                console.error('[DEBUG] Error details:', {
+                console.error('[DEBUG] Error details:', JSON.stringify({
                     message: invokeMessage,
                     status: intentError?.status,
                     fullError: intentError
-                })
+                }, null, 2))
                 if (invokeMessage.includes('AUTH_SESSION') || invokeMessage.includes('SESSION_EXPIRED_NEED_RELOGIN')) {
                     throw new Error('SESSION_EXPIRED_NEED_RELOGIN')
                 }
-                throw new Error('Erreur lors de l’initialisation du paiement sécurisé (Stripe).')
+                throw new Error(`Erreur Stripe: ${invokeMessage || 'Erreur inconnue'}`)
             }
 
             // 3. Enregistrer l'intention de paiement. La réservation ne sera créée qu'après confirmation serveur.

@@ -61,10 +61,15 @@ function getActorUserId(authHeader: string | null) {
   const token = extractBearerToken(authHeader);
 
   if (!token) {
+    console.log("[DEBUG Edge Function] No token extracted from Authorization header");
     throw new Error("AUTH_REQUIRED");
   }
 
+  console.log("[DEBUG Edge Function] Token extracted, length:", token.length);
+  
   const payload = decodeJwtPayload(token);
+  console.log("[DEBUG Edge Function] Decoded payload:", payload);
+  
   if (!payload.sub) {
     throw new Error("AUTH_REQUIRED");
   }
@@ -82,7 +87,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const actorUserId = getActorUserId(req.headers.get("Authorization"));
+    // DEBUG: Log headers reçus
+    console.log("[DEBUG Edge Function] Headers:", Object.fromEntries(req.headers.entries()));
+    const authHeader = req.headers.get("Authorization");
+    console.log("[DEBUG Edge Function] Authorization header:", authHeader ? authHeader.substring(0, 20) + "..." : "null");
+    
+    const actorUserId = getActorUserId(authHeader);
     const { hostId, startTime, endTime } = await req.json();
 
     if (!hostId || !startTime || !endTime) {
