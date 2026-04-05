@@ -400,6 +400,11 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 
             if (intentError || !intentData?.clientSecret || !intentData?.paymentIntentId) {
                 const invokeMessage = intentError?.message ?? ''
+                console.error('[DEBUG] Error details:', {
+                    message: invokeMessage,
+                    status: intentError?.status,
+                    fullError: intentError
+                })
                 if (invokeMessage.includes('AUTH_SESSION') || invokeMessage.includes('SESSION_EXPIRED_NEED_RELOGIN')) {
                     throw new Error('SESSION_EXPIRED_NEED_RELOGIN')
                 }
