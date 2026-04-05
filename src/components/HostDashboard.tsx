@@ -62,6 +62,9 @@ export default function HostDashboard() {
     const [validationSuccess, setValidationSuccess] = useState<string | null>(null)
     const [showScanner, setShowScanner] = useState(false)
     const [completingId, setCompletingId] = useState<string | null>(null)
+    const [page, setPage] = useState(1)
+    const [hasMore, setHasMore] = useState(false)
+    const PAGE_SIZE = 10
 
     const loadData = useCallback(async (signal?: AbortSignal) => {
         if (!user) return
@@ -99,12 +102,15 @@ export default function HostDashboard() {
                 .from('bookings')
                 .select('*')
                 .in('host_id', spaceIds)
+                .order('created_at', { ascending: false })
+                .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
             const { data: hostBookingsData } = await (signal ? query.abortSignal(signal) : query)
-                .order('created_at', { ascending: false })
 
+            const paginatedBookings = (hostBookingsData ?? []) as Booking[]
+            setHasMore(paginatedBookings.length === PAGE_SIZE)
             setRecentBookings(
-                ((hostBookingsData ?? []) as Booking[]).map((booking) => ({
+                paginatedBookings.map((booking) => ({
                     ...booking,
                     hostName: hostMap.get(booking.host_id) ?? 'Place inconnue',
                 }))
@@ -114,7 +120,7 @@ export default function HostDashboard() {
         }
 
         setLoading(false)
-    }, [user])
+    }, [user, page])
 
     useEffect(() => {
         if (!user) return
@@ -127,7 +133,7 @@ export default function HostDashboard() {
         })
 
         return () => controller.abort()
-    }, [user, loadData])
+    }, [user, loadData, page])
 
     async function toggleActive(space: Host) {
         setTogglingId(space.id)
@@ -631,6 +637,55 @@ export default function HostDashboard() {
                                             </div>
                                         )
                                     })}
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '10px 16px',
+                                            background: page === 1 ? 'rgba(255,255,255,0.04)' : 'rgba(108,92,231,0.12)',
+                                            border: `1px solid ${page === 1 ? 'rgba(255,255,255,0.08)' : 'rgba(108,92,231,0.3)'}`,
+                                            borderRadius: 'var(--radius-md)',
+                                            color: page === 1 ? 'var(--color-text-muted)' : 'var(--color-primary-light)',
+                                            cursor: page === 1 ? 'not-allowed' : 'pointer',
+                                            fontWeight: 600,
+                                            fontSize: '0.85rem',
+                                            opacity: page === 1 ? 0.5 : 1,
+                                        }}
+                                    >
+                                        ← Précédent
+                                    </button>
+                                    
+                                    <span style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                                        Page {page}
+                                    </span>
+                                    
+                                    <button
+                                        onClick={() => setPage(p => p + 1)}
+                                        disabled={!hasMore}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '10px 16px',
+                                            background: !hasMore ? 'rgba(255,255,255,0.04)' : 'rgba(108,92,231,0.12)',
+                                            border: `1px solid ${!hasMore ? 'rgba(255,255,255,0.08)' : 'rgba(108,92,231,0.3)'}`,
+                                            borderRadius: 'var(--radius-md)',
+                                            color: !hasMore ? 'var(--color-text-muted)' : 'var(--color-primary-light)',
+                                            cursor: !hasMore ? 'not-allowed' : 'pointer',
+                                            fontWeight: 600,
+                                            fontSize: '0.85rem',
+                                            opacity: !hasMore ? 0.5 : 1,
+                                        }}
+                                    >
+                                        Suivant →
+                                    </button>
                                 </div>
                             </div>
                         )}

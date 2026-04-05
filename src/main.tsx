@@ -37,23 +37,3 @@ createRoot(document.getElementById('root')!).render(
     </HostProfileProvider>
   </>,
 )
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => {
-        void registration.unregister()
-      })
-    })
-
-    if ('caches' in window) {
-      void caches.keys().then((keys) => {
-        keys.forEach((key) => {
-          if (key.includes('workbox') || key.includes('supabase-hosts-cache') || key.includes('map-tiles-cache')) {
-            void caches.delete(key)
-          }
-        })
-      })
-    }
-  })
-}
