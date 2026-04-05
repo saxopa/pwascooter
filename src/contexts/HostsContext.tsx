@@ -45,20 +45,20 @@ export function HostsProvider({ children }: { children: ReactNode }) {
                 setHosts(mappedHosts)
                 hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
             } else {
+                // Fallback vers la table hosts
+                const { data: fallbackData, error: tableError } = await supabase
+                    .from('hosts')
+                    .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
+                    .eq('is_active', true)
+                    .abortSignal(controller.signal)
 
-            const { data: fallbackData, error: tableError } = await supabase
-                .from('hosts')
-                .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
-                .eq('is_active', true)
-                .abortSignal(controller.signal)
+                if (tableError) {
+                    throw new Error(viewError.message || tableError.message)
+                }
 
-            if (tableError) {
-                throw new Error(viewError.message || tableError.message)
-            }
-
-            const mappedHosts = (fallbackData ?? []) as Host[]
-            setHosts(mappedHosts)
-            hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
+                const mappedHosts = (fallbackData ?? []) as Host[]
+                setHosts(mappedHosts)
+                hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
             }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Impossible de charger la carte.'

@@ -87,10 +87,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // DEBUG: Log headers reçus
-    console.log("[DEBUG Edge Function] Headers:", Object.fromEntries(req.headers.entries()));
-    const authHeader = req.headers.get("Authorization");
-    console.log("[DEBUG Edge Function] Authorization header:", authHeader ? authHeader.substring(0, 20) + "..." : "null");
+    // DEBUG: Log headers reçus (insensible à la casse)
+    const headersObj = Object.fromEntries(req.headers.entries());
+    console.log("[DEBUG Edge Function] Headers:", headersObj);
+    
+    // Récupérer le header Authorization (insensible à la casse)
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+    console.log("[DEBUG Edge Function] Authorization header:", authHeader ? authHeader.substring(0, 30) + "..." : "NULL - AUTH_REQUIRED");
     
     const actorUserId = getActorUserId(authHeader);
     const { hostId, startTime, endTime } = await req.json();
