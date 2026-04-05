@@ -46,9 +46,22 @@ type Host = Tables<'hosts'>
 let stripePromiseCache: ReturnType<typeof loadStripe> | null = null
 function getStripePromise() {
     const key = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
-    if (!key || key.trim() === '') return null
+    
+    // DEBUG: Log la clé Stripe (masquée)
+    console.log('[DEBUG] VITE_STRIPE_PUBLIC_KEY exists:', !!key)
+    console.log('[DEBUG] VITE_STRIPE_PUBLIC_KEY length:', key?.length ?? 0)
+    if (key && key.length > 8) {
+        console.log('[DEBUG] VITE_STRIPE_PUBLIC_KEY prefix:', key.substring(0, 8) + '...' + key.substring(key.length - 4))
+    }
+    
+    if (!key || key.trim() === '') {
+        console.error('[DEBUG] VITE_STRIPE_PUBLIC_KEY is empty or undefined!')
+        return null
+    }
     if (!stripePromiseCache) {
+        console.log('[DEBUG] Calling loadStripe()...')
         stripePromiseCache = loadStripe(key)
+        console.log('[DEBUG] loadStripe() returned:', stripePromiseCache)
     }
     return stripePromiseCache
 }
@@ -361,6 +374,10 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             setConfirmedStartTime(startTime.toISOString())
             setConfirmedEndTime(endTime.toISOString())
 
+            // DEBUG: Log avant appel Edge Function
+            console.log('[DEBUG] Calling create-payment-intent with hostId:', host.id)
+            console.log('[DEBUG] startTime:', startTime.toISOString())
+            console.log('[DEBUG] endTime:', endTime.toISOString())
             // 2. Initialiser Stripe Payment Intent avec calcul serveur autoritaire
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 8000)
@@ -378,6 +395,8 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             })
 
             clearTimeout(timeoutId)
+            // DEBUG: Log réponse Edge Function
+            console.log('[DEBUG] create-payment-intent response:', { intentData, intentError })
 
             if (intentError || !intentData?.clientSecret || !intentData?.paymentIntentId) {
                 const invokeMessage = intentError?.message ?? ''
@@ -388,6 +407,7 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
             }
 
             // 3. Enregistrer l'intention de paiement. La réservation ne sera créée qu'après confirmation serveur.
+            console.log('[DEBUG] Payment intent created successfully:', intentData.paymentIntentId)
             setPaymentIntentId(intentData.paymentIntentId)
             setClientSecret(intentData.clientSecret)
         } catch (err: unknown) {
