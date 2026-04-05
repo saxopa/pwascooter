@@ -127,14 +127,48 @@ export async function invokeAuthedFunction<T = unknown>(
   functionName: string,
   options: InvokeOptions = {},
 ) {
-  let accessToken = await getAccessToken()
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (err: unknown) {
+    // Session complètement invalide (refresh token expiré/supprimé)
+    const errorMessage = err instanceof Error ? err.message : ''
+    if (errorMessage.includes('Refresh Token Not Found') || errorMessage.includes('Invalid Refresh Token')) {
+      // Forcer la déconnexion côté client pour nettoyer le state
+      await supabase.auth.signOut({ scope: 'local' })
+      return {
+        data: null as T | null,
+        error: {
+          message: 'SESSION_EXPIRED_NEED_RELOGIN',
+          status: 401,
+        },
+      }
+    }
+    throw err
+  }
+  
   let { response, parsed } = await postFunction(functionName, accessToken, options)
 
   if (response.status === 401) {
-    accessToken = await refreshAccessToken()
-    const retry = await postFunction(functionName, accessToken, options)
-    response = retry.response
-    parsed = retry.parsed
+    try {
+      accessToken = await refreshAccessToken()
+      const retry = await postFunction(functionName, accessToken, options)
+      response = retry.response
+      parsed = retry.parsed
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : ''
+      if (errorMessage.includes('Refresh Token Not Found') || errorMessage.includes('Invalid Refresh Token')) {
+        await supabase.auth.signOut({ scope: 'local' })
+        return {
+          data: null as T | null,
+          error: {
+            message: 'SESSION_EXPIRED_NEED_RELOGIN',
+            status: 401,
+          },
+        }
+      }
+      throw err
+    }
   }
 
   if (!response.ok) {

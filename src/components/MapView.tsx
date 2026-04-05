@@ -400,8 +400,8 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
 
             if (intentError || !intentData?.clientSecret || !intentData?.paymentIntentId) {
                 const invokeMessage = intentError?.message ?? ''
-                if (invokeMessage.includes('AUTH_SESSION')) {
-                    throw new Error('Votre session a expiré. Reconnectez-vous avant de lancer le paiement.')
+                if (invokeMessage.includes('AUTH_SESSION') || invokeMessage.includes('SESSION_EXPIRED_NEED_RELOGIN')) {
+                    throw new Error('SESSION_EXPIRED_NEED_RELOGIN')
                 }
                 throw new Error('Erreur lors de l’initialisation du paiement sécurisé (Stripe).')
             }
@@ -413,7 +413,13 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         } catch (err: unknown) {
             console.error(err)
             if (isMountedRef.current) {
-                setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement.')
+                const errorMessage = err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement.'
+                if (errorMessage === 'SESSION_EXPIRED_NEED_RELOGIN') {
+                    setError('Votre session a expiré. Veuillez vous reconnecter.')
+                    // Proposer un bouton de reconnexion
+                } else {
+                    setError(errorMessage)
+                }
             }
         } finally {
             if (isMountedRef.current) setIsPaying(false)
