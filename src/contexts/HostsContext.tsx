@@ -44,8 +44,7 @@ export function HostsProvider({ children }: { children: ReactNode }) {
                 const mappedHosts = (data ?? []) as unknown as Host[]
                 setHosts(mappedHosts)
                 hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
-                return
-            }
+            } else {
 
             const { data: fallbackData, error: tableError } = await supabase
                 .from('hosts')
@@ -60,6 +59,7 @@ export function HostsProvider({ children }: { children: ReactNode }) {
             const mappedHosts = (fallbackData ?? []) as Host[]
             setHosts(mappedHosts)
             hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
+            }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Impossible de charger la carte.'
             setError(message === 'AbortError' ? 'Le chargement de la carte a expiré.' : message)
