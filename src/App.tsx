@@ -3,12 +3,35 @@ import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-
 import ProtectedRoute from './components/ProtectedRoute'
 import { useHostProfile } from './contexts/HostProfileContext'
 
-const LandingPage = lazy(() => import('./components/LandingPage'))
-const MapView = lazy(() => import('./components/MapView'))
-const BookingsList = lazy(() => import('./components/BookingsList'))
-const HostDashboard = lazy(() => import('./components/HostDashboard'))
-const TermsPage = lazy(() => import('./components/TermsPage'))
-const BecomeHost = lazy(() => import('./components/BecomeHost'))
+const LandingPage = lazy(() => import('./components/LandingPage').catch(handleChunkLoadError))
+const MapView = lazy(() => import('./components/MapView').catch(handleChunkLoadError))
+const BookingsList = lazy(() => import('./components/BookingsList').catch(handleChunkLoadError))
+const HostDashboard = lazy(() => import('./components/HostDashboard').catch(handleChunkLoadError))
+const TermsPage = lazy(() => import('./components/TermsPage').catch(handleChunkLoadError))
+const BecomeHost = lazy(() => import('./components/BecomeHost').catch(handleChunkLoadError))
+
+/**
+ * When a SW-cached index.html references chunks from a previous build,
+ * the dynamic import fails with a 404. Detect this and force a full reload.
+ */
+function handleChunkLoadError(error: unknown): never {
+  const isChunkError =
+    error instanceof Error &&
+    (error.message.includes('dynamically imported module') ||
+     error.message.includes('Loading chunk') ||
+     error.message.includes('Failed to fetch'))
+
+  if (isChunkError) {
+    const reloadKey = 'scootsafe_chunk_reload'
+    const lastReload = Number(sessionStorage.getItem(reloadKey) || '0')
+    // Prevent reload loops: max 1 reload per 30 seconds
+    if (Date.now() - lastReload > 30_000) {
+      try { sessionStorage.setItem(reloadKey, String(Date.now())) } catch { /* silent */ }
+      window.location.reload()
+    }
+  }
+  throw error
+}
 
 function AppShellLoader() {
   return (
