@@ -334,7 +334,18 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         return () => { isMountedRef.current = false }
     }, [])
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    /** Returns the next half-hour boundary from now (e.g. 14h23 → 14h30) */
+    function nextHalfHour(): Date {
+        const d = new Date()
+        const mins = d.getMinutes()
+        const roundedMins = mins < 30 ? 30 : 60
+        d.setMinutes(roundedMins, 0, 0)
+        return d
+    }
+
     const [selectedDuration, setSelectedDuration] = useState(1) // par défaut 1h
+    const [selectedStartTime, setSelectedStartTime] = useState<Date>(() => nextHalfHour())
     const [isPaying, setIsPaying] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -356,10 +367,9 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
         setError(null)
 
         try {
-            // 1. Préparer les dates
-            const startTime = new Date()
-            const endTime = new Date()
-            endTime.setHours(endTime.getHours() + selectedDuration)
+            // 1. Préparer les dates depuis le créneau choisi
+            const startTime = selectedStartTime
+            const endTime = new Date(startTime.getTime() + selectedDuration * 3600 * 1000)
             setConfirmedStartTime(startTime.toISOString())
             setConfirmedEndTime(endTime.toISOString())
 
@@ -640,7 +650,49 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                 </div>
 
                 <div style={{ background: 'rgba(0,0,0,0.2)', padding: 16, borderRadius: 'var(--radius-md)', marginBottom: 20 }}>
-                    <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: 12, fontWeight: 600 }}>Choisir une durée</h3>
+                    {/* ── Datetime picker ── */}
+                    <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: 10, fontWeight: 600 }}>
+                        Créneau de début
+                    </h3>
+                    <input
+                        type="datetime-local"
+                        value={(() => {
+                            // Convert selectedStartTime to local datetime-local format (YYYY-MM-DDTHH:mm)
+                            const d = selectedStartTime
+                            const pad = (n: number) => String(n).padStart(2, '0')
+                            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                        })()}
+                        min={(() => {
+                            const now = new Date()
+                            const pad = (n: number) => String(n).padStart(2, '0')
+                            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+                        })()}
+                        max={(() => {
+                            const maxDate = new Date(Date.now() + 7 * 24 * 3600 * 1000)
+                            const pad = (n: number) => String(n).padStart(2, '0')
+                            return `${maxDate.getFullYear()}-${pad(maxDate.getMonth() + 1)}-${pad(maxDate.getDate())}T${pad(maxDate.getHours())}:${pad(maxDate.getMinutes())}`
+                        })()}
+                        onChange={(e) => {
+                            if (e.target.value) setSelectedStartTime(new Date(e.target.value))
+                        }}
+                        style={{
+                            width: '100%',
+                            padding: '11px 13px',
+                            background: 'rgba(255,255,255,0.07)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'white',
+                            fontSize: '0.95rem',
+                            fontFamily: 'inherit',
+                            marginBottom: 16,
+                            colorScheme: 'dark',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                        }}
+                    />
+
+                    {/* ── Duration buttons ── */}
+                    <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: 10, fontWeight: 600 }}>Choisir une durée</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                         {DURATIONS.map((dur) => (
                             <button
@@ -662,6 +714,33 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                             </button>
                         ))}
                     </div>
+
+                    {/* ── Visual summary ── */}
+                    {(() => {
+                        const endPreview = new Date(selectedStartTime.getTime() + selectedDuration * 3600 * 1000)
+                        const fmtDate = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                        const fmtTime = (d: Date) => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                        return (
+                            <div style={{
+                                marginTop: 14,
+                                padding: '10px 12px',
+                                borderRadius: 'var(--radius-sm)',
+                                background: 'rgba(108,92,231,0.1)',
+                                border: '1px solid rgba(108,92,231,0.2)',
+                                fontSize: '0.82rem',
+                                color: 'var(--color-text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                            }}>
+                                <Clock size={13} style={{ flexShrink: 0, color: 'var(--color-primary-light)' }} />
+                                <span>
+                                    Du <strong style={{ color: 'white' }}>{fmtDate(selectedStartTime)} {fmtTime(selectedStartTime)}</strong>
+                                    {' '}au <strong style={{ color: 'white' }}>{fmtDate(endPreview)} {fmtTime(endPreview)}</strong>
+                                </span>
+                            </div>
+                        )
+                    })()}
                 </div>
 
                 {/* Dynamic Price */}
@@ -671,6 +750,14 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                         {totalPrice.toFixed(2)} €
                     </span>
                 </div>
+
+                {/* Start-in-past error */}
+                {selectedStartTime < new Date() && (
+                    <div style={{ color: 'var(--color-warning)', fontSize: '0.85rem', marginBottom: 12, padding: '10px 12px', background: 'rgba(253,203,110,0.1)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Clock size={14} style={{ flexShrink: 0 }} />
+                        Le créneau est déjà passé.
+                    </div>
+                )}
 
                 {/* Error message */}
                 {error && (
@@ -744,11 +831,11 @@ function BottomSheet({ host, user, onClose, onOpenAuth }: BottomSheetProps) {
                         <button
                             className="btn-primary"
                             onClick={handleBook}
-                            disabled={isPaying || isSelfBooking || isLegacyDemoHost}
+                            disabled={isPaying || isSelfBooking || isLegacyDemoHost || selectedStartTime < new Date()}
                             style={{
                                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                opacity: isPaying || isSelfBooking || isLegacyDemoHost ? 0.7 : 1,
-                                cursor: isPaying || isSelfBooking || isLegacyDemoHost ? 'not-allowed' : 'pointer',
+                                opacity: isPaying || isSelfBooking || isLegacyDemoHost || selectedStartTime < new Date() ? 0.7 : 1,
+                                cursor: isPaying || isSelfBooking || isLegacyDemoHost || selectedStartTime < new Date() ? 'not-allowed' : 'pointer',
                                 padding: '14px 20px',
                                 whiteSpace: 'nowrap',
                             }}
