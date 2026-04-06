@@ -1,3 +1,5 @@
+import { forwardRef } from 'react'
+
 const CODE39_PATTERNS: Record<string, string> = {
     '0': 'nnnwwnwnn',
     '1': 'wnnwnnnnw',
@@ -46,62 +48,67 @@ interface Code39BarcodeProps {
     height?: number
 }
 
-export default function Code39Barcode({ value, height = 56 }: Code39BarcodeProps) {
-    const encodedValue = `*${value.toUpperCase()}*`
-    const narrow = 2
-    const wide = 5
-    const gap = 3
-    const quietZone = 12
-    let cursor = quietZone
-    const bars: React.ReactNode[] = []
+const Code39Barcode = forwardRef<SVGSVGElement, Code39BarcodeProps>(
+    function Code39Barcode({ value, height = 56 }, ref) {
+        const encodedValue = `*${value.toUpperCase()}*`
+        const narrow = 2
+        const wide = 5
+        const gap = 3
+        const quietZone = 12
+        let cursor = quietZone
+        const bars: React.ReactNode[] = []
 
-    for (const char of encodedValue) {
-        const pattern = CODE39_PATTERNS[char]
-        if (!pattern) continue
+        for (const char of encodedValue) {
+            const pattern = CODE39_PATTERNS[char]
+            if (!pattern) continue
 
-        for (let index = 0; index < pattern.length; index += 1) {
-            const unit = pattern[index] === 'w' ? wide : narrow
-            const isBar = index % 2 === 0
+            for (let index = 0; index < pattern.length; index += 1) {
+                const unit = pattern[index] === 'w' ? wide : narrow
+                const isBar = index % 2 === 0
 
-            if (isBar) {
-                bars.push(
-                    <rect
-                        key={`${char}-${index}-${cursor}`}
-                        x={cursor}
-                        y={0}
-                        width={unit}
-                        height={height}
-                        rx={0.4}
-                        fill="currentColor"
-                    />
-                )
+                if (isBar) {
+                    bars.push(
+                        <rect
+                            key={`${char}-${index}-${cursor}`}
+                            x={cursor}
+                            y={0}
+                            width={unit}
+                            height={height}
+                            rx={0.4}
+                            fill="currentColor"
+                        />
+                    )
+                }
+
+                cursor += unit
             }
 
-            cursor += unit
+            cursor += gap
         }
 
-        cursor += gap
+        cursor += quietZone
+
+        return (
+            <svg
+                ref={ref}
+                viewBox={`0 0 ${cursor} ${height}`}
+                width="100%"
+                height={height}
+                aria-label={`Code barre ${value}`}
+                role="img"
+                style={{
+                    display: 'block',
+                    background: 'white',
+                    color: '#111',
+                    borderRadius: 10,
+                    padding: '6px 8px',
+                }}
+                shapeRendering="crispEdges"
+            >
+                {bars}
+            </svg>
+        )
     }
+)
 
-    cursor += quietZone
-
-    return (
-        <svg
-            viewBox={`0 0 ${cursor} ${height}`}
-            width="100%"
-            height={height}
-            aria-label={`Code barre ${value}`}
-            role="img"
-            style={{
-                display: 'block',
-                background: 'white',
-                color: '#111',
-                borderRadius: 10,
-                padding: '6px 8px',
-            }}
-            shapeRendering="crispEdges"
-        >
-            {bars}
-        </svg>
-    )
-}
+export default Code39Barcode
