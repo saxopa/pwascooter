@@ -64,6 +64,7 @@ export default function HostDashboard() {
     const [completingId, setCompletingId] = useState<string | null>(null)
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(false)
+    const [channelStatus, setChannelStatus] = useState<'SUBSCRIBED' | 'CONNECTING' | 'CLOSED'>('CONNECTING')
     const PAGE_SIZE = 10
 
     const loadData = useCallback(async (signal?: AbortSignal) => {
@@ -134,6 +135,36 @@ export default function HostDashboard() {
 
         return () => controller.abort()
     }, [user, loadData, page])
+
+    // ── Realtime subscription ────────────────────────────────────────────────
+    useEffect(() => {
+        if (!user || spaces.length === 0) return
+
+        const spaceIds = spaces.map(s => s.id).join(',')
+
+        const channel = supabase
+            .channel(`host-bookings-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'bookings',
+                    filter: `host_id=in.(${spaceIds})`,
+                },
+                () => { void loadData() }
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') setChannelStatus('SUBSCRIBED')
+                else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setChannelStatus('CLOSED')
+                else setChannelStatus('CONNECTING')
+            })
+
+        return () => {
+            setChannelStatus('CONNECTING')
+            void supabase.removeChannel(channel)
+        }
+    }, [user, spaces, loadData])
 
     async function toggleActive(space: Host) {
         setTogglingId(space.id)
@@ -303,9 +334,42 @@ export default function HostDashboard() {
                     <ArrowLeft size={18} />
                 </button>
                 <div style={{ flex: 1 }}>
-                    <h1 className="text-gradient" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                        Espace Pro
-                    </h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <h1 className="text-gradient" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                            Espace Pro
+                        </h1>
+                        {spaces.length > 0 && (
+                            <span
+                                title={channelStatus === 'SUBSCRIBED' ? 'Temps réel actif' : 'Connexion…'}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '2px 7px',
+                                    borderRadius: 999,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.04em',
+                                    background: channelStatus === 'SUBSCRIBED'
+                                        ? 'rgba(0,184,148,0.15)'
+                                        : 'rgba(255,255,255,0.07)',
+                                    color: channelStatus === 'SUBSCRIBED'
+                                        ? 'var(--color-success)'
+                                        : 'var(--color-text-muted)',
+                                    border: `1px solid ${channelStatus === 'SUBSCRIBED' ? 'rgba(0,184,148,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                                    transition: 'all 0.4s ease',
+                                }}
+                            >
+                                <span style={{
+                                    width: 5, height: 5, borderRadius: '50%',
+                                    background: channelStatus === 'SUBSCRIBED' ? 'var(--color-success)' : 'var(--color-text-muted)',
+                                    boxShadow: channelStatus === 'SUBSCRIBED' ? '0 0 5px var(--color-success)' : 'none',
+                                    flexShrink: 0,
+                                }} />
+                                {channelStatus === 'SUBSCRIBED' ? 'Live' : '…'}
+                            </span>
+                        )}
+                    </div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 1 }}>
                         {profile?.company_name ?? '⚡ ScootSafe'}
                     </p>
