@@ -24,7 +24,7 @@ interface HostProfileContextType {
 const HostProfileContext = createContext<HostProfileContextType | null>(null)
 
 function isApprovedHost(profile: Profile | null) {
-    return profile?.role === 'host' && profile.host_status === 'approved'
+    return (profile?.role === 'host' || profile?.role === 'admin') && profile.host_status === 'approved'
 }
 
 export function HostProfileProvider({ children }: { children: ReactNode }) {
