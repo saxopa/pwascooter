@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import nodemailer from 'npm:nodemailer@6'
 
 type BookingNotificationEvent =
   | 'booking_created'
@@ -262,6 +263,7 @@ async function upsertLog(args: {
       status: args.status,
       provider_message_id: args.providerMessageId ?? null,
       error_message: args.errorMessage ?? null,
+      provider: 'ionos_smtp',
       payload: args.payload,
       sent_at: args.status === 'sent' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
@@ -272,32 +274,35 @@ async function upsertLog(args: {
   }
 }
 
-async function sendResendEmail(to: string, subject: string, html: string) {
-  if (!resendApiKey) {
-    throw new Error('RESEND_API_KEY_MISSING')
+async function sendSmtpEmail(to: string, subject: string, html: string) {
+  const host = Deno.env.get('SMTP_HOST')
+  const port = parseInt(Deno.env.get('SMTP_PORT') ?? '465')
+  const user = Deno.env.get('SMTP_USER')
+  const pass = Deno.env.get('SMTP_PASSWORD')
+  const from = Deno.env.get('SCOOTSAFE_FROM_EMAIL') ?? 'ScootSafe <contact@ponticom.fr>'
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP_CONFIG_MISSING')
   }
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${resendApiKey}`,
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: true, // true pour le port 465 (SSL)
+    auth: { user, pass },
+    tls: {
+      rejectUnauthorized: true,
     },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: [to],
-      subject,
-      html,
-    }),
   })
 
-  const data = await response.json()
-  if (!response.ok) {
-    const message = typeof data?.message === 'string' ? data.message : 'EMAIL_PROVIDER_ERROR'
-    throw new Error(message)
-  }
+  const info = await transporter.sendMail({
+    from,
+    to,
+    subject,
+    html,
+  })
 
-  return data?.id as string | undefined
+  return info.messageId as string | undefined
 }
 
 function assertEventAccess(eventType: BookingNotificationEvent, actorId: string, booking: BookingRow, host: HostRow) {
@@ -386,7 +391,7 @@ Deno.serve(async (req: Request) => {
       })
 
       try {
-        const providerMessageId = await sendResendEmail(recipient.email, subject, html)
+        const providerMessageId = await sendSmtpEmail(recipient.email, subject, html)
         await upsertLog({
           bookingId,
           invoiceId: invoice.id,
