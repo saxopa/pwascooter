@@ -43,8 +43,6 @@ type InvoiceRow = {
 }
 
 const appUrl = Deno.env.get('SCOOTSAFE_APP_URL') ?? 'https://saxopa.github.io/pwascooter/'
-const resendApiKey = Deno.env.get('RESEND_API_KEY')
-const fromEmail = Deno.env.get('SCOOTSAFE_FROM_EMAIL') ?? 'ScootSafe <onboarding@resend.dev>'
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

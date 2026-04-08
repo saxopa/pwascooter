@@ -19,24 +19,23 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({ hosts: 0, pending: 0, users: 0 })
 
     useEffect(() => {
+        async function loadProfiles() {
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false })
+
+            if (data) {
+                setProfiles(data as Profile[])
+                setStats({
+                    hosts: data.filter(p => p.role === 'host' && p.host_status === 'approved').length,
+                    pending: data.filter(p => p.host_status === 'pending').length,
+                    users: data.length
+                })
+            }
+        }
         loadProfiles()
     }, [])
-
-    async function loadProfiles() {
-        const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false })
-
-        if (data) {
-            setProfiles(data as Profile[])
-            setStats({
-                hosts: data.filter(p => p.role === 'host' && p.host_status === 'approved').length,
-                pending: data.filter(p => p.host_status === 'pending').length,
-                users: data.length
-            })
-        }
-    }
 
     async function handleStatusUpdate(userId: string, newStatus: 'approved' | 'rejected', newRole: 'host' | 'user') {
         const { error } = await supabase.rpc('admin_update_host_status', {
@@ -44,8 +43,21 @@ export default function AdminDashboard() {
             p_new_status: newStatus,
             p_new_role: newRole
         })
+
         if (!error) {
-            await loadProfiles()
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false })
+
+            if (data) {
+                setProfiles(data as Profile[])
+                setStats({
+                    hosts: data.filter(p => p.role === 'host' && p.host_status === 'approved').length,
+                    pending: data.filter(p => p.host_status === 'pending').length,
+                    users: data.length
+                })
+            }
         } else {
             console.error(error)
             alert("Erreur lors de la mise à jour : " + error.message)
