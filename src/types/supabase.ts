@@ -345,6 +345,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_update_host_status: {
+        Args: { p_new_role: string; p_new_status: string; p_user_id: string }
+        Returns: undefined
+      }
       book_parking_spot: {
         Args: {
           p_end_time: string
@@ -407,6 +411,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      expire_active_bookings: { Args: never; Returns: number }
       expire_pending_bookings: { Args: never; Returns: number }
       generate_booking_pickup_code: {
         Args: { p_booking_id: string }
@@ -580,3 +585,4 @@ export const Constants = {
     },
   },
 } as const
+

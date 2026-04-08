@@ -23,6 +23,7 @@ import {
     Crosshair,
     SlidersHorizontal,
     Shield,
+    ShieldAlert,
     ChevronRight,
     Navigation,
 } from 'lucide-react'
@@ -1029,6 +1030,27 @@ export default function MapView() {
                         >
                             CGU
                         </button>
+                        {profile?.role === 'admin' && (
+                            <button
+                                onClick={() => navigate('/admin')}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '8px 11px',
+                                    borderRadius: '999px',
+                                    border: '1px solid rgba(0, 184, 148, 0.2)',
+                                    background: 'rgba(0, 184, 148, 0.1)',
+                                    color: 'var(--color-success)',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <ShieldAlert size={14} />
+                                Admin
+                            </button>
+                        )}
                         {user ? (
                             <button
                                 onClick={handleSignOut}

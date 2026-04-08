@@ -71,7 +71,10 @@ export default function HostDashboard() {
         if (!user) return
         setLoading(true)
 
-        await supabase.rpc('expire_pending_bookings')
+        await Promise.all([
+            supabase.rpc('expire_pending_bookings'),
+            supabase.rpc('expire_active_bookings'),
+        ])
 
         const { data: spacesData } = await supabase
             .from('hosts')

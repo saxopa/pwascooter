@@ -7,6 +7,7 @@ const LandingPage = lazy(() => import('./components/LandingPage').catch(handleCh
 const MapView = lazy(() => import('./components/MapView').catch(handleChunkLoadError))
 const BookingsList = lazy(() => import('./components/BookingsList').catch(handleChunkLoadError))
 const HostDashboard = lazy(() => import('./components/HostDashboard').catch(handleChunkLoadError))
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').catch(handleChunkLoadError))
 const TermsPage = lazy(() => import('./components/TermsPage').catch(handleChunkLoadError))
 const BecomeHost = lazy(() => import('./components/BecomeHost').catch(handleChunkLoadError))
 
@@ -66,6 +67,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute requiredRole="host">
               <HostDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />
