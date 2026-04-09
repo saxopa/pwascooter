@@ -24,11 +24,27 @@ function handleChunkLoadError(error: unknown): never {
 
   if (isChunkError) {
     const reloadKey = 'scootsafe_chunk_reload'
-    const lastReload = Number(sessionStorage.getItem(reloadKey) || '0')
+    let lastReload = 0
+    try {
+      lastReload = Number(sessionStorage.getItem(reloadKey) || '0')
+    } catch {
+      // sessionStorage might throw in private mode
+    }
+
     // Prevent reload loops: max 1 reload per 30 seconds
     if (Date.now() - lastReload > 30_000) {
-      try { sessionStorage.setItem(reloadKey, String(Date.now())) } catch { /* silent */ }
-      window.location.reload()
+      let saved = false
+      try { 
+        sessionStorage.setItem(reloadKey, String(Date.now()))
+        saved = true
+      } catch { /* silent */ }
+      
+      // If we couldn't save to sessionStorage, avoid infinite programmatic reloads
+      // by falling through to throwing the error and letting React Error Boundary catch it.
+      if (saved) {
+        window.location.reload()
+        return null as never
+      }
     }
   }
   throw error
