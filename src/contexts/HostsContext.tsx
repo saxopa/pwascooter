@@ -35,10 +35,19 @@ export function HostsProvider({ children }: { children: ReactNode }) {
         const timeoutId = window.setTimeout(() => controller.abort(), 10000)
 
         try {
-            const { data, error: viewError } = await supabase
+            // Strict timeout wrapper to protect against Supabase SDK deadlocking (e.g. auth lock hanging)
+            const timeoutPromise = new Promise<{data: null, error: Error}>((_, reject) => {
+                window.setTimeout(() => reject(new Error('AbortError')), 10000)
+            })
+
+            const viewPromise = supabase
                 .from('hosts_map')
                 .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
                 .abortSignal(controller.signal)
+
+            const viewResult = await Promise.race([viewPromise, timeoutPromise])
+            const data = viewResult?.data
+            const viewError = viewResult?.error
 
             if (!viewError) {
                 const mappedHosts = (data ?? []) as unknown as Host[]
@@ -46,11 +55,15 @@ export function HostsProvider({ children }: { children: ReactNode }) {
                 hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
             } else {
                 // Fallback vers la table hosts
-                const { data: fallbackData, error: tableError } = await supabase
+                const tablePromise = supabase
                     .from('hosts')
                     .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
                     .eq('is_active', true)
                     .abortSignal(controller.signal)
+                
+                const tableResult = await Promise.race([tablePromise, timeoutPromise])
+                const fallbackData = tableResult?.data
+                const tableError = tableResult?.error
 
                 if (tableError) {
                     throw new Error(viewError.message || tableError.message)
