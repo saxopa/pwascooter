@@ -10,10 +10,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
     )
 }
 
+// Main client — full auth (session restore, token refresh, auth lock)
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
         flowType: 'implicit',
         detectSessionInUrl: true,
         persistSession: true,
+    },
+})
+
+// Lightweight read-only client for public data (hosts map).
+// No auth init → no auth lock → instant query on page refresh.
+// Uses anon key only — relies on hosts_select_public RLS policy.
+export const supabasePublic = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
     },
 })

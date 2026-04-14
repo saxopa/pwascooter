@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabasePublic } from '../lib/supabaseClient'
 import type { Tables } from '../types/supabase'
 
 type Host = Tables<'hosts'>
@@ -40,7 +40,7 @@ export function HostsProvider({ children }: { children: ReactNode }) {
                 window.setTimeout(() => reject(new Error('AbortError')), 10000)
             })
 
-            const viewPromise = supabase
+            const viewPromise = supabasePublic
                 .from('hosts_map')
                 .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
                 .abortSignal(controller.signal)
@@ -55,7 +55,7 @@ export function HostsProvider({ children }: { children: ReactNode }) {
                 hostsCacheRef.current = { data: mappedHosts, fetchedAt: Date.now() }
             } else {
                 // Fallback vers la table hosts
-                const tablePromise = supabase
+                const tablePromise = supabasePublic
                     .from('hosts')
                     .select('id, name, latitude, longitude, price_per_hour, has_charging, capacity, owner_id, is_active')
                     .eq('is_active', true)
