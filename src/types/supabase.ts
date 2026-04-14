@@ -383,12 +383,6 @@ export type Database = {
           total_price: number
           user_id: string
         }
-        SetofOptions: {
-          from: "*"
-          to: "bookings"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       complete_booking: {
         Args: { p_booking_id: string }
@@ -404,12 +398,6 @@ export type Database = {
           total_price: number
           user_id: string
         }
-        SetofOptions: {
-          from: "*"
-          to: "bookings"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       expire_active_bookings: { Args: never; Returns: number }
       expire_pending_bookings: { Args: never; Returns: number }
@@ -417,6 +405,7 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: string
       }
+      is_admin: { Args: never; Returns: boolean }
       is_host_approved: { Args: { p_user_id: string }; Returns: boolean }
       log_booking_status_event: {
         Args: {
@@ -443,12 +432,6 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"] | null
           total_price: number
           user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "bookings"
-          isOneToOne: true
-          isSetofReturn: false
         }
       }
     }
@@ -563,6 +546,7 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
@@ -585,4 +569,3 @@ export const Constants = {
     },
   },
 } as const
-

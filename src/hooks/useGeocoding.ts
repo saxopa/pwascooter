@@ -46,7 +46,7 @@ export function useGeocoding(): UseGeocodingReturn {
                     `https://nominatim.openstreetmap.org/search?${params}`,
                     { headers: { 'Accept-Language': 'fr' } }
                 )
-                const data: NominatimResult[] = await res.json()
+                const data = (await res.json()) as NominatimResult[]
                 const normalizedResults = data
                     .map((item) => ({
                         lat: Number(item.lat),

@@ -137,7 +137,7 @@ export default function LandingPage() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user && isMounted) {
-        navigate('/map', { replace: true })
+        void navigate('/map', { replace: true })
       }
     })
 
@@ -149,7 +149,7 @@ export default function LandingPage() {
 
   function handleAuthSuccess() {
     setShowAuthModal(false)
-    navigate('/map')
+    void navigate('/map')
   }
 
   return (

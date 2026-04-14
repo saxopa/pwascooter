@@ -111,7 +111,7 @@ function AppBootstrap({ onReady }: { onReady: () => void }) {
 
     if (authCode) {
       window.history.replaceState({}, document.title, `${window.location.origin}${basePath}/#/map`)
-      navigate('/map', { replace: true })
+      void navigate('/map', { replace: true })
     }
   }, [navigate])
 

@@ -47,7 +47,7 @@ export function HostProfileProvider({ children }: { children: ReactNode }) {
         const isMissingProfile = error?.code === 'PGRST116'
         if (!isMissingProfile) return
 
-        const metadata = currentUser.user_metadata ?? {}
+        const metadata = (currentUser.user_metadata ?? {}) as Record<string, string | undefined>
         const requestedHostAccess = metadata.role === 'host' || metadata.requested_role === 'host'
         const fallbackName =
             metadata.nom ?? metadata.full_name ?? metadata.name ??

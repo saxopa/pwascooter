@@ -34,7 +34,7 @@ export default function AdminDashboard() {
                 })
             }
         }
-        loadProfiles()
+        void loadProfiles()
     }, [])
 
     async function handleStatusUpdate(userId: string, newStatus: 'approved' | 'rejected', newRole: 'host' | 'user') {

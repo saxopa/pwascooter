@@ -41,10 +41,11 @@ export default function RoleSelectModal({ userId, onComplete }: RoleSelectModalP
                 throw new Error('Session utilisateur introuvable. Reconnecte-toi puis réessaie.')
             }
 
+            const meta = authUser.user_metadata as Record<string, string | undefined>
             const fallbackName =
-                authUser.user_metadata?.nom ??
-                authUser.user_metadata?.full_name ??
-                authUser.user_metadata?.name ??
+                meta.nom ??
+                meta.full_name ??
+                meta.name ??
                 authUser.email?.split('@')[0] ??
                 'Utilisateur'
 

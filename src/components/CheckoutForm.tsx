@@ -77,7 +77,7 @@ export default function CheckoutForm({ paymentIntentId, onSuccess }: CheckoutFor
           setIsLoading(false)
         } else {
           onSuccess({
-            bookingId: data.bookingId as string,
+            bookingId: data.bookingId ?? '',
             pickupCode: typeof data.pickupCode === 'string' ? data.pickupCode : null,
           })
         }

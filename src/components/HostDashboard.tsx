@@ -158,8 +158,10 @@ export default function HostDashboard() {
                 () => { void loadData() }
             )
             .subscribe((status) => {
-                if (status === 'SUBSCRIBED') setChannelStatus('SUBSCRIBED')
-                else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setChannelStatus('CLOSED')
+                // Cast to string to avoid no-unsafe-enum-comparison with Supabase internal enum
+                const s = status as string
+                if (s === 'SUBSCRIBED') setChannelStatus('SUBSCRIBED')
+                else if (s === 'CLOSED' || s === 'CHANNEL_ERROR') setChannelStatus('CLOSED')
                 else setChannelStatus('CONNECTING')
             })
 
@@ -186,7 +188,7 @@ export default function HostDashboard() {
     function handleFormSaved() {
         setShowForm(false)
         setEditingSpace(null)
-        loadData()
+        void loadData()
     }
 
     async function validateBookingByCode(rawCode: string) {
